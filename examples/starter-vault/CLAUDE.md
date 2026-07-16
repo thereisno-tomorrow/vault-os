@@ -1,59 +1,59 @@
 # Starter Vault
 
-Example vault demonstrating Vault OS v2 baseline structure. Replace this with your project's identity.
+Example vault demonstrating the Vault OS v4 baseline. Replace this with your project's identity.
 
-**Start here:** [[compass]]
+**Start here:** [[compass]] — orientation is also injected automatically at every session start.
+
+---
+
+**Operating frame:**
+- **ORIENT** — read the injected DERIVED + DECLARED orientation before acting
+- **WORK** — do the task; state session intent in one sentence first
+- **CLOSE** — `/decide` at the moment of a decision; `/capture` for a narrative if the session is worth a note
+
+State session intent in one sentence before loading any context.
 
 ---
 
 ## Commands
 
+This table IS the command reference. `/guide` renders it — there is no separate guide file.
+
 | Command | Purpose |
 |---|---|
-| `/compass` | Read vault state or update with what changed |
-| `/guide` | Show command reference |
-| `/capture` | Write session summary + update compass |
-| `/decide` | Capture an operational decision immediately |
-| `/maintain` | Periodic vault maintenance |
-
----
-
-## Key Files
-
-| File | Purpose |
-|---|---|
-| `ops/compass.md` | Live state — where the project stands right now |
-| `ops/decisions.md` | Operational decisions log |
-| `ops/knowledge.md` | Stable facts promoted from decisions |
-| `ops/sessions/last-active.md` | Last session summary |
+| `/compass` | Read the compass, or update Focus / Questions / Flags with what changed |
+| `/guide` | Render this Commands table |
+| `/capture` | Write a narrative session summary to `ops/sessions/last-active.md` (optional — never load-bearing) |
+| `/decide` | Append an operational decision to `ops/decisions.md` at the moment it is made |
 
 ---
 
 ## Session Handoff
 
-**Last session:** never
-**Current state:** Fresh vault. No work done yet.
-**What's broken:** nothing
-**In progress:** nothing
+There is no handoff block — the genre is retired (D1). Continuity is computed: `session-orient.sh`
+prints live DERIVED state every session and the compass carries DECLARED intent. Read those.
 
 ---
 
 ## Protected Files
 
-- `CLAUDE.md`
-- `ops/vault-manifest.md`
+`CLAUDE.md` and `ops/vault-manifest.md` are gated by native permission rules in
+`.claude/settings.json` (`permissions.ask`) — the harness prompts BEFORE any Edit or Write.
+To protect another file, add both `Edit(/path)` and `Write(/path)` to the `ask` array. There is
+no `protected-files.txt` and no `protect.py`.
 
 ---
 
 ## Anti-Patterns
 
-**Don't read all context files upfront.** Burns context window before any work happens.
-**Don't reason from scratch instead of pulling from graph.** Defeats the vault's purpose.
-**Don't embed live state in CLAUDE.md.** CLAUDE.md is the contract; compass.md is the current position.
-**Don't leave Session Handoff stale.** Stale handoff is worse than no handoff.
+**Don't paste live state into CLAUDE.md or the compass.** State is computed by orientation; a stored copy only goes stale.
+**Don't read all context files upfront.** Load on demand, by session intent.
+**Don't reason from scratch.** Pull from `ops/decisions.md`, the compass, and git history first.
+**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is invisible cross-vault.
 
 ---
 
 ## Operating Style
 
 - Sharp. No wasted words.
+- State session intent in one sentence before loading any context.

@@ -1,21 +1,23 @@
 {
+  "permissions": {
+    "ask": [
+      "Edit(/CLAUDE.md)",
+      "Write(/CLAUDE.md)",
+      "Edit(/ops/vault-manifest.md)",
+      "Write(/ops/vault-manifest.md)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
         "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-orient.sh"}]
+        "hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-orient.sh"}]
       }
     ],
     "SessionEnd": [
       {
         "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-capture.sh"}]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [{"type": "command", "command": "python .claude/hooks/protect.py"}]
+        "hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-capture.sh"}]
       }
     ]
   }

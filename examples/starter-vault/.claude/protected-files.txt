@@ -1,4 +1,0 @@
-# Files that require explicit user permission before modification.
-# One relative path per line. Lines starting with # are comments.
-CLAUDE.md
-ops/vault-manifest.md

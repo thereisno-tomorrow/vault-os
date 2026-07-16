@@ -1,16 +1,25 @@
 #!/bin/bash
-# session-orient.sh — Vault OS v2 compliant
-# vault-os-hook-version: 4.0.0
-# Fires at SessionStart (blank matcher: startup, resume, compact)
+# session-orient.sh — Vault OS v4 (D1: continuity is computed, not curated)
+# vault-os-hook-version: 4.1.0
+# Fires at SessionStart (blank matcher: startup, resume, clear, compact)
+#
+# Two sections, by trust tier:
+#   DERIVED  — computed live from git + disk every session. No stored copy exists to go stale.
+#   DECLARED — from compass.md (Focus/Questions/Flags): things git cannot tell you. Shown behind
+#              a staleness banner if the compass Updated stamp is >30 days old.
+# Plus a PRE-V4 check that offers migration when a vault predates the v4 context contract.
+# Everything fails loudly (D6): a check that cannot run says so; it never defaults to "fine".
 
-# --- Selftest mode: verify this hook's own dependencies, loudly ---
+STALE_DAYS=30
+
+# ── Selftest: verify this hook's own dependencies, loudly ─────────────────────
 if [ "${1:-}" = "--selftest" ]; then
   SELFTEST_FAIL=0
 
   if EPOCH=$(date -d "2026-01-01" +%s 2>/dev/null) && [ -n "$EPOCH" ]; then
     echo "PASS: date -d parses ISO dates (2026-01-01 -> ${EPOCH})"
   else
-    echo "FAIL: date -d \"2026-01-01\" +%s did not parse — GNU date required for manifest drift check"
+    echo "FAIL: date -d \"2026-01-01\" +%s did not parse — GNU date required for compass staleness banner"
     SELFTEST_FAIL=1
   fi
 
@@ -21,26 +30,33 @@ if [ "${1:-}" = "--selftest" ]; then
     SELFTEST_FAIL=1
   fi
 
+  # The corrected DEC_COUNT char class must not raise "Invalid range end" on this grep.
+  if printf 'x\n' | grep -c '^[^[:space:]#-]' >/dev/null 2>&1; then
+    echo "PASS: decisions-count char class '^[^[:space:]#-]' compiles (no Invalid range end)"
+  else
+    echo "FAIL: decisions-count char class raised an error — grep regex engine incompatible"
+    SELFTEST_FAIL=1
+  fi
+
+  if command -v git >/dev/null 2>&1; then
+    echo "PASS: git is on PATH ($(git --version 2>/dev/null)) — DERIVED git signals available"
+  else
+    echo "FAIL: git not on PATH — DERIVED section cannot compute branch/commits/push status"
+    SELFTEST_FAIL=1
+  fi
+
+  if ST=$(stat -c %Y "$0" 2>/dev/null) && [ -n "$ST" ]; then
+    echo "PASS: stat -c %Y works (mtime ${ST}) — recently-modified-files ranking available"
+  else
+    echo "FAIL: stat -c %Y did not work — cannot rank recently modified files"
+    SELFTEST_FAIL=1
+  fi
+
   SELFTEST_VAULT="${CLAUDE_PROJECT_DIR:-$PWD}"
   if [ -d "$SELFTEST_VAULT" ]; then
     echo "PASS: CLAUDE_PROJECT_DIR (or PWD fallback) resolves to a directory ($SELFTEST_VAULT)"
   else
     echo "FAIL: CLAUDE_PROJECT_DIR/fallback '$SELFTEST_VAULT' is not a directory"
-    SELFTEST_FAIL=1
-  fi
-
-  SELFTEST_HOME="${HOME:-$USERPROFILE}"
-  if [ -n "$SELFTEST_HOME" ] && [ -d "$SELFTEST_HOME" ] && [ -w "$SELFTEST_HOME" ]; then
-    echo "PASS: HOME resolves to a writable directory ($SELFTEST_HOME) — vault-runtime write target reachable"
-  else
-    echo "FAIL: HOME ('${SELFTEST_HOME:-unset}') is unset, missing, or not writable — cannot create \$HOME/.claude/vault-runtime"
-    SELFTEST_FAIL=1
-  fi
-
-  if [ -d "$SELFTEST_VAULT/ops" ] || [ -d "$SELFTEST_VAULT" ]; then
-    echo "PASS: $SELFTEST_VAULT is reachable as parent for ops/ read targets (compass/decisions/knowledge/manifest/sessions)"
-  else
-    echo "FAIL: $SELFTEST_VAULT not reachable — ops/*.md read targets would silently no-op"
     SELFTEST_FAIL=1
   fi
 
@@ -54,143 +70,154 @@ if [ "${1:-}" = "--selftest" ]; then
 fi
 
 VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be invoked by Claude Code}"
-[[ -f "$VAULT/CLAUDE.md" ]] || { echo "ERROR: VAULT root invalid at $VAULT"; exit 1; }
+[[ -f "$VAULT/CLAUDE.md" ]] || { echo "ERROR: VAULT root invalid at $VAULT (no CLAUDE.md)"; exit 1; }
 
-# --- Set your vault name here ---
 VAULT_NAME=$(basename "$VAULT")
-RUNTIME_DIR="$HOME/.claude/vault-runtime/$VAULT_NAME"
-mkdir -p "$RUNTIME_DIR"
+MANIFEST="$VAULT/ops/vault-manifest.md"
 
-echo "╔══════════════════════════════════════════╗"
-echo "║       ${VAULT_NAME} ORIENTATION           ║"
-echo "╚══════════════════════════════════════════╝"
-echo "Date: $(date +%Y-%m-%d)"
-echo "hooks v4.0.0"
+echo "╔══════════════════════════════════════════════════════════╗"
+printf "║  %-56s║\n" "${VAULT_NAME} ORIENTATION"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo "Date: $(date +%Y-%m-%d)   hooks v4.1.0"
 echo ""
 
-# --- Operator profile ---
+# ── Operator profile (personal cross-project surface; organic-write-backed) ───
 if [ -f "$HOME/.claude/operator.md" ]; then
   echo "--- OPERATOR PROFILE ---"
   cat "$HOME/.claude/operator.md"
   echo ""
 fi
 
-# --- Last session ---
-if [ -f "$VAULT/ops/sessions/last-active.md" ]; then
-  echo "--- LAST SESSION ---"
-  cat "$VAULT/ops/sessions/last-active.md"
-  echo ""
-fi
+# ══════════════════════════════════════════════════════════════════════════════
+# DERIVED — computed live. Nothing here is stored; nothing here can go stale.
+# ══════════════════════════════════════════════════════════════════════════════
+echo "--- DERIVED (computed live — git + disk) ---"
 
-# --- Decisions ---
-if [ -f "$VAULT/ops/decisions.md" ]; then
-  echo "--- DECISIONS ---"
-  cat "$VAULT/ops/decisions.md"
-  echo ""
-fi
+if ! command -v git >/dev/null 2>&1; then
+  echo "⚠ git is not on PATH — cannot compute branch, commits, or push status this session."
+elif ! git -C "$VAULT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "⚠ NOT A GIT REPOSITORY — no version-control history to derive from."
+  echo "  Session continuity is degraded: run 'git init' + first commit to enable DERIVED signals."
+else
+  BRANCH=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  echo "Branch: ${BRANCH:-<unknown>}"
 
-# --- Knowledge Core ---
-if [ -f "$VAULT/ops/knowledge.md" ]; then
-  CORE=$(awk '/^## Core/{found=1; next} /^## /{if(found) exit} found{print}' "$VAULT/ops/knowledge.md")
-  if echo "$CORE" | grep -qv '^[[:space:]]*$'; then
-    echo "--- KNOWLEDGE ---"
-    echo "$CORE"
-    CORE_LINES=$(echo "$CORE" | grep -c .)
-    EXT_COUNT=$(awk '/^## Extended/{found=1} found && /^[^#[:space:]]/{count++} END{print count+0}' "$VAULT/ops/knowledge.md")
-    DEC_COUNT=$(grep -c '^[^[:space:]-#]' "$VAULT/ops/decisions.md" 2>/dev/null)
-    DEC_COUNT=${DEC_COUNT:-0}
-    echo "KNOWLEDGE: Core ${CORE_LINES} lines | Extended ${EXT_COUNT} entries | decisions.md ${DEC_COUNT} entries"
-    if [ "${EXT_COUNT:-0}" -gt 20 ] || [ "${DEC_COUNT:-0}" -gt 30 ]; then
-      echo "/maintain recommended"
-    fi
-    echo ""
+  echo "Last 5 commits:"
+  if git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
+    git -C "$VAULT" log -5 --oneline 2>/dev/null | sed 's/^/  /'
   else
-    echo "WARNING: knowledge.md has no Core/Extended structure — run /maintain to migrate."
-    echo ""
+    echo "  (no commits yet)"
+  fi
+
+  UNCOMMITTED=$(git -C "$VAULT" status --porcelain 2>/dev/null | grep -c .)
+  echo "Uncommitted changes: ${UNCOMMITTED} file(s)"
+
+  UPSTREAM=$(git -C "$VAULT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+  if [ -n "$UPSTREAM" ]; then
+    UNPUSHED=$(git -C "$VAULT" rev-list --count "${UPSTREAM}..HEAD" 2>/dev/null)
+    echo "Unpushed commits: ${UNPUSHED:-?} (ahead of ${UPSTREAM})"
+  else
+    echo "Unpushed commits: ⚠ no upstream tracking branch — push status unknown (set with: git push -u)"
+  fi
+
+  echo "Recently modified (non-ignored, top 5):"
+  RECENT=$(git -C "$VAULT" ls-files --cached --others --exclude-standard -z 2>/dev/null \
+    | while IFS= read -r -d '' f; do
+        [ -f "$VAULT/$f" ] || continue
+        m=$(stat -c %Y "$VAULT/$f" 2>/dev/null) || continue
+        printf '%s\t%s\n' "$m" "$f"
+      done | sort -rn | head -5 | cut -f2-)
+  if [ -n "$RECENT" ]; then
+    echo "$RECENT" | sed 's/^/  /'
+  else
+    echo "  (none tracked or all ignored)"
   fi
 fi
 
-# --- Quest context (quest-link declared in manifest) ---
-MANIFEST="$VAULT/ops/vault-manifest.md"
-if [ -f "$MANIFEST" ]; then
-  QUEST_LINK=$(grep 'quest-link:' "$MANIFEST" | sed 's/.*quest-link:[[:space:]]*//' | tr -d '"' | xargs 2>/dev/null)
-  if [ -n "$QUEST_LINK" ]; then
-    if [ -f "$VAULT/$QUEST_LINK" ]; then
-      echo "--- QUEST CONTEXT ---"
-      head -30 "$VAULT/$QUEST_LINK"
-      if ! head -5 "$VAULT/$QUEST_LINK" | grep -qE '^(---|[*#])'; then
-        echo "WARNING: no front-matter detected in first 5 lines of $QUEST_LINK. Quest file should open with a summary block." >&2
-      fi
-      echo ""
-    else
-      echo "WARNING: quest file not found at $VAULT/$QUEST_LINK"
-      echo "To fix: update quest-link in ops/vault-manifest.md or create the missing file."
-      echo ""
-    fi
+# Last session record + its age
+LAST="$VAULT/ops/sessions/last-active.md"
+echo ""
+if [ -f "$LAST" ]; then
+  MT=$(stat -c %Y "$LAST" 2>/dev/null)
+  if [ -n "$MT" ]; then
+    AGE_DAYS=$(( ( $(date +%s) - MT ) / 86400 ))
+    echo "Last session record (ops/sessions/last-active.md, ${AGE_DAYS}d old):"
+  else
+    echo "Last session record (ops/sessions/last-active.md):"
   fi
+  sed 's/^/  /' "$LAST"
+else
+  echo "Last session record: none (no ops/sessions/last-active.md yet)."
 fi
-
-# --- Manifest drift check ---
-if [ -f "$MANIFEST" ]; then
-  LAST_VERIFIED=$(grep 'last-verified:' "$MANIFEST" | sed 's/.*last-verified:[[:space:]]*//' | xargs 2>/dev/null)
-  SUPPRESS="$RUNTIME_DIR/.last-manifest-warning"
-  TODAY=$(date +%Y-%m-%d)
-  LAST_WARNED=$(cat "$SUPPRESS" 2>/dev/null || echo "1970-01-01")
-
-  if [ -z "$LAST_VERIFIED" ]; then
-    echo "--- MANIFEST DRIFT CHECK ---"
-    echo "WARNING: ops/vault-manifest.md missing last-verified field."
-    echo ""
-  elif [ "$LAST_WARNED" != "$TODAY" ]; then
-    if LV_EPOCH=$(date -d "$LAST_VERIFIED" +%s 2>/dev/null); then
-      DAYS_OLD=$(( ( $(date +%s) - LV_EPOCH ) / 86400 ))
-    else
-      echo "WARNING: could not parse last-verified date '$LAST_VERIFIED' — staleness check skipped." >&2
-      DAYS_OLD=""
-    fi
-    if [ -n "$DAYS_OLD" ] && [ "${DAYS_OLD:-0}" -gt 7 ]; then
-      echo "--- MANIFEST DRIFT CHECK ---"
-      echo "WARNING: ops/vault-manifest.md last-verified $LAST_VERIFIED ($DAYS_OLD days ago). Review and stamp last-verified."
-      echo "$TODAY" > "$SUPPRESS"
-      echo ""
-    fi
-  fi
-fi
-
-# --- Operational state ---
-echo "--- OPERATIONAL STATE ---"
-cat "$VAULT/ops/compass.md" 2>/dev/null || echo "(compass not found)"
 echo ""
 
-# --- Vault structure (live-generated) ---
-echo "--- VAULT STRUCTURE ---"
-echo "${VAULT##*/}/"
-for entry in "$VAULT"/*/; do
-  [ -d "$entry" ] || continue
-  name="${entry%/}"; name="${name##*/}"
-  echo "├── $name/"
+# ══════════════════════════════════════════════════════════════════════════════
+# DECLARED — from compass.md. Things git cannot tell you. Historical if stale.
+# ══════════════════════════════════════════════════════════════════════════════
+# Resolve compass path from the manifest's exports.compass, then fall back.
+EXPORT_COMPASS=""
+if [ -f "$MANIFEST" ]; then
+  EXPORT_COMPASS=$(awk '
+    /^exports:/{inx=1; next}
+    inx && /^[^[:space:]#]/{inx=0}
+    inx && /compass:/{sub(/.*compass:[[:space:]]*/,""); gsub(/"/,""); print; exit}
+  ' "$MANIFEST" | xargs 2>/dev/null)
+fi
+COMPASS=""
+for cand in "$EXPORT_COMPASS" "compass.md" "ops/compass.md"; do
+  [ -n "$cand" ] && [ -f "$VAULT/$cand" ] && { COMPASS="$VAULT/$cand"; break; }
 done
-for entry in "$VAULT"/*.md; do
-  [ -f "$entry" ] || continue
-  echo "├── ${entry##*/}"
-done
-KEY_DIRS=("ops" "quests" ".claude/hooks" ".claude/commands")
-for kd in "${KEY_DIRS[@]}"; do
-  target="$VAULT/$kd"
-  [ -d "$target" ] || { echo "│   (not found: $kd/)"; continue; }
-  for item in "$target"/*; do
-    [ -e "$item" ] || continue
-    name="${item##*/}"
-    if [ -d "$item" ]; then
-      echo "│   ├── $name/"
-    else
-      echo "│   ├── $name"
+
+echo "--- DECLARED (compass intent — Focus / Questions / Flags) ---"
+if [ -z "$COMPASS" ]; then
+  echo "⚠ No compass found (looked for exports.compass, compass.md, ops/compass.md)."
+  echo "  Declared intent is unavailable — create a compass so orientation has intent to show."
+else
+  UPDATED=$(grep -oE '\*Updated:[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}\*' "$COMPASS" 2>/dev/null \
+    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+  if [ -n "$UPDATED" ] && U_EPOCH=$(date -d "$UPDATED" +%s 2>/dev/null); then
+    C_AGE=$(( ( $(date +%s) - U_EPOCH ) / 86400 ))
+    if [ "$C_AGE" -gt "$STALE_DAYS" ]; then
+      echo "╔══════════════════════════════════════════════════════════╗"
+      echo "║  ⚠ intent last declared ${C_AGE} days ago — treat as HISTORICAL"
+      echo "║  The compass below reflects intent as of ${UPDATED}, not now."
+      echo "║  Trust the DERIVED section above for current state.       ║"
+      echo "╚══════════════════════════════════════════════════════════╝"
     fi
-  done
-done
-echo "(generated $(date +%Y-%m-%d))"
+  elif [ -z "$UPDATED" ]; then
+    echo "⚠ compass has no '*Updated: YYYY-MM-DD*' stamp — cannot judge staleness. Add one."
+  else
+    echo "⚠ could not parse compass Updated date '$UPDATED' — staleness unknown."
+  fi
+  cat "$COMPASS"
+fi
 echo ""
 
-echo "╔══════════════════════════════════════════╗"
-echo "║  Run /capture before closing this tab.   ║"
-echo "╚══════════════════════════════════════════╝"
+# Decisions log (human-authored calls; injected verbatim — D2 keeps it unchanged)
+DECISIONS="$VAULT/ops/decisions.md"
+if [ -f "$DECISIONS" ]; then
+  echo "--- DECISIONS ---"
+  cat "$DECISIONS"
+  # Volume signal. Corrected char class (was '^[^[:space:]-#]' which raises Invalid range end;
+  # '-' must be last in a bracket expression). Counts non-blank, non-comment, non-bullet lines.
+  DEC_COUNT=$(grep -c '^[^[:space:]#-]' "$DECISIONS" 2>/dev/null)
+  DEC_COUNT=${DEC_COUNT:-0}
+  echo ""
+  echo "decisions.md: ${DEC_COUNT} content line(s)"
+  echo ""
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PRE-V4 CHECK (D8) — offer migration when this vault predates the context contract.
+# ══════════════════════════════════════════════════════════════════════════════
+if [ -f "$MANIFEST" ] && ! grep -q '^exports:' "$MANIFEST" 2>/dev/null; then
+  echo "--- MIGRATION ---"
+  echo "⚠ PRE-V4 VAULT: ops/vault-manifest.md has no 'exports:' contract. This vault predates"
+  echo "  Vault OS v4. Offer to migrate it (slim compass, context-contract manifest, native"
+  echo "  permissions, v4 hooks) — see spec/vault-os-v4.md in the vault-os repo."
+  echo ""
+fi
+
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  Continuity is computed. /capture only adds narrative.    ║"
+echo "╚══════════════════════════════════════════════════════════╝"

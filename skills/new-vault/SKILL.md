@@ -1,11 +1,19 @@
 ---
 name: new-vault
-description: Scaffold a new vault conforming to vault-os-v2. Invoked when user says "new vault", "create vault", "scaffold vault", or describes a project that needs a vault. Extracts context from chat, asks ≤3 questions, confirms, then writes all files.
+description: Scaffold a new vault conforming to vault-os-v4. Invoked when user says "new vault", "create vault", "scaffold vault", or describes a project that needs a vault. Extracts context from chat, asks ≤3 questions, confirms, then writes all files.
 ---
 
 # new-vault
 
-Scaffold a complete vault conforming to vault-os-v2 standards. When invoked, execute phases 0–4 below. All file content is defined inline — no external files consulted at runtime. Everything needed is here.
+Scaffold a complete vault conforming to **vault-os-v4** (`spec/vault-os-v4.md`). When invoked, execute phases 0–4 below. All file content is defined inline — no external files consulted at runtime. Everything needed is here.
+
+**v4 baseline (what changed from v2 — do not scaffold the v2 artifacts):**
+- **Slim compass** — three sections only (Focus / Questions / Flags) + an `*Updated:*` stamp. No Vault State, Key Files, or Hot Files tables. Continuity is computed by the orient hook, not curated here.
+- **Context-contract manifest** — `exports:` / `intake:` / `domains:`, not `export-surfaces:`.
+- **Native permissions** — protected files gated by `permissions.ask` in `.claude/settings.json`. No `protect.py`, no `protected-files.txt`.
+- **No `knowledge.md`** and **no `guide.md`** — both retired (D9). `/guide` renders CLAUDE.md's Commands table.
+- **Two v4 hooks** (`session-orient.sh`, `session-capture.sh`, version 4.1.0, `--selftest`-able).
+- `validate-note.py` + `ops/validate-config.yaml` remain **Module A only**.
 
 ---
 
@@ -18,8 +26,8 @@ The vault manifest (`ops/vault-manifest.md`) is always created — it is a basel
 | A | Knowledge Graph | `notes/` (flat), MOCs, `dedup-index.md`, `validate-note.py`, `ops/validate-config.yaml`, `/reduce` `/reflect` `/connect` `/think` | — |
 | B | Inbox Pipeline | `inbox/`, `archive/transcripts/`, `processing-backlog.md`, full `/reduce` pipeline | A |
 | C | Synthesis Commands | `/brief`, `/challenge` (+ `/think` shared with A) | A |
-| D | Project State | Session Handoff, Hot Files in compass.md, Tech Stack, Architecture, Code Patterns, Protected Files, `protect.py` | — |
-| E | Context Loading Table | Context Loading Table in CLAUDE.md + Key Files Table in compass.md | — |
+| D | Project State | Tech Stack, Architecture, Code Patterns in CLAUDE.md. (Protected files are native `permissions.ask` — baseline, not a module. No Session Handoff narrative, no `protect.py`.) | — |
+| E | Context Loading Table | Context Loading Table in CLAUDE.md | — |
 | F | Design Workspace | `context/`, `architecture/`, `research/`, Core Insight, Constraints sections | — |
 | G | Intelligence Scanning | `sources/`, `/scan`, Epistemic Rules (accepts any HTTPS) | A or E |
 
@@ -96,7 +104,8 @@ Path: [root]
 Features: [A, B, C, ...] (manifest always included)
 Creates: [N files across X directories]
 Commands: [comma-separated list]
-Hooks: session-orient.sh, session-capture.sh[, validate-note.py (Module A)][, protect.py (Module D)]
+Hooks: session-orient.sh, session-capture.sh[, validate-note.py (Module A)]
+Protected files (native permissions.ask): CLAUDE.md, ops/vault-manifest.md
 ```
 
 ---
@@ -133,15 +142,15 @@ Module G: `sources/`
 
 **Step 5 (Module A only): Write `ops/validate-config.yaml`** — see T-VALIDATE-CONFIG.
 
-**Step 6 (Module D only): Write `.claude/hooks/protect.py`** — see T-PROTECT. Also write `.claude/protected-files.txt` — see T-PROTECTED.
+**Step 6:** *(removed in v4 — protected files are native `permissions.ask` rules written in Step 7. No `protect.py`, no `protected-files.txt`.)*
 
-**Step 7: Write `.claude/settings.json`** — see T-SETTINGS. Choose the correct variant based on modules selected.
+**Step 7: Write `.claude/settings.json`** — see T-SETTINGS. Baseline variant unless Module A is selected (Module A adds the `validate-note.py` PostToolUse hook). The `permissions.ask` block is always written.
 
-**Step 8: Write `CLAUDE.md`** — assemble sections per T-CLAUDE. Sections in canonical order 1–20; omit module-conditional sections when their module is not selected.
+**Step 8: Write `CLAUDE.md`** — assemble sections per T-CLAUDE. Omit module-conditional sections when their module is not selected.
 
-**Step 9: Write `compass.md`** — see T-COMPASS.
+**Step 9: Write `compass.md`** — see T-COMPASS. Slim: Focus / Questions / Flags only.
 
-**Step 10: Write `ops/knowledge.md`** — see T-KNOWLEDGE. Always.
+**Step 10:** *(removed in v4 — `ops/knowledge.md` and its Core/Extended machinery are retired.)*
 
 **Step 11: Write `ops/decisions.md`** — see T-DECISIONS. Always.
 
@@ -155,12 +164,12 @@ Module G: `sources/`
 
 **Step 16: Write `.claude/commands/` files** — write one file per active command:
 - Always: `compass.md` (T-CMD-COMPASS) — local override because new vaults place compass at root, not ops/
-- Note: `capture.md`, `decide.md`, `guide.md`, `maintain.md` are global commands in `~/.claude/commands/` — do NOT scaffold them locally
+- Note: `capture.md`, `decide.md`, `guide.md` are global commands in `~/.claude/commands/` — do NOT scaffold them locally. `/guide` renders CLAUDE.md's Commands table; there is no `ops/guide.md`.
 - Module A: `reduce.md` (T-CMD-REDUCE), `reflect.md` (T-CMD-REFLECT), `connect.md` (T-CMD-CONNECT), `think.md` (T-CMD-THINK)
 - Module C: `brief.md` (T-CMD-BRIEF), `challenge.md` (T-CMD-CHALLENGE). If A already wrote `think.md`, do not write it again.
 - Module G: `scan.md` (T-CMD-SCAN)
 
-**Step 17: Write `ops/guide.md`** — see T-GUIDE. Include only commands from selected modules.
+**Step 17:** *(removed in v4 — no `ops/guide.md`. `/guide` renders the Commands table in CLAUDE.md.)*
 
 ---
 
@@ -172,7 +181,7 @@ Created: N files in X directories
 [directory tree of what was created]
 
 Start here: compass.md
-First action: [what to do now — e.g., "Add your first source file to inbox/ then run /reduce" or "Fill Session Handoff in CLAUDE.md with current project state" or "Add domains to notes/index.md"]
+First action: [what to do now — e.g., "Add your first source file to inbox/ then run /reduce" or "Set the compass Focus to what this vault is trying to do" or "Add domains to notes/index.md"]
 ```
 
 ---
@@ -183,198 +192,352 @@ First action: [what to do now — e.g., "Add your first source file to inbox/ th
 
 ### T-ORIENT: `.claude/hooks/session-orient.sh`
 
-Write this file verbatim. Omit the Module B inbox block if Module B not selected. Omit the Module A notes listing block and MODULE A HEALTH block if Module A not selected.
+Write this file verbatim (vault-os v4.1.0). It is baseline for every vault — no module conditionals. The DERIVED section computes state from git + disk every session; the DECLARED section prints the compass. Do not add per-module blocks; keep one hook lineage (D6).
 
 ```bash
 #!/bin/bash
-# session-orient.sh — Fires at SessionStart (all sources including compact).
-# Conforms to vault-os-v2.
+# session-orient.sh — Vault OS v4 (D1: continuity is computed, not curated)
+# vault-os-hook-version: 4.1.0
+# Fires at SessionStart (blank matcher: startup, resume, clear, compact)
+#
+# Two sections, by trust tier:
+#   DERIVED  — computed live from git + disk every session. No stored copy exists to go stale.
+#   DECLARED — from compass.md (Focus/Questions/Flags): things git cannot tell you. Shown behind
+#              a staleness banner if the compass Updated stamp is >30 days old.
+# Plus a PRE-V4 check that offers migration when a vault predates the v4 context contract.
+# Everything fails loudly (D6): a check that cannot run says so; it never defaults to "fine".
+
+STALE_DAYS=30
+
+# ── Selftest: verify this hook's own dependencies, loudly ─────────────────────
+if [ "${1:-}" = "--selftest" ]; then
+  SELFTEST_FAIL=0
+
+  if EPOCH=$(date -d "2026-01-01" +%s 2>/dev/null) && [ -n "$EPOCH" ]; then
+    echo "PASS: date -d parses ISO dates (2026-01-01 -> ${EPOCH})"
+  else
+    echo "FAIL: date -d \"2026-01-01\" +%s did not parse — GNU date required for compass staleness banner"
+    SELFTEST_FAIL=1
+  fi
+
+  if printf 'WARNING: sample\n' | grep -qE '^(WARNING|ERROR)'; then
+    echo "PASS: grep -E works on a sample string"
+  else
+    echo "FAIL: grep -E did not match expected sample — extended regex unavailable"
+    SELFTEST_FAIL=1
+  fi
+
+  # The corrected DEC_COUNT char class must not raise "Invalid range end" on this grep.
+  if printf 'x\n' | grep -c '^[^[:space:]#-]' >/dev/null 2>&1; then
+    echo "PASS: decisions-count char class '^[^[:space:]#-]' compiles (no Invalid range end)"
+  else
+    echo "FAIL: decisions-count char class raised an error — grep regex engine incompatible"
+    SELFTEST_FAIL=1
+  fi
+
+  if command -v git >/dev/null 2>&1; then
+    echo "PASS: git is on PATH ($(git --version 2>/dev/null)) — DERIVED git signals available"
+  else
+    echo "FAIL: git not on PATH — DERIVED section cannot compute branch/commits/push status"
+    SELFTEST_FAIL=1
+  fi
+
+  if ST=$(stat -c %Y "$0" 2>/dev/null) && [ -n "$ST" ]; then
+    echo "PASS: stat -c %Y works (mtime ${ST}) — recently-modified-files ranking available"
+  else
+    echo "FAIL: stat -c %Y did not work — cannot rank recently modified files"
+    SELFTEST_FAIL=1
+  fi
+
+  SELFTEST_VAULT="${CLAUDE_PROJECT_DIR:-$PWD}"
+  if [ -d "$SELFTEST_VAULT" ]; then
+    echo "PASS: CLAUDE_PROJECT_DIR (or PWD fallback) resolves to a directory ($SELFTEST_VAULT)"
+  else
+    echo "FAIL: CLAUDE_PROJECT_DIR/fallback '$SELFTEST_VAULT' is not a directory"
+    SELFTEST_FAIL=1
+  fi
+
+  if [ "$SELFTEST_FAIL" -eq 0 ]; then
+    echo "SELFTEST: all checks passed"
+    exit 0
+  else
+    echo "SELFTEST: one or more checks failed"
+    exit 1
+  fi
+fi
 
 VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be invoked by Claude Code}"
-[[ -f "$VAULT/CLAUDE.md" ]] || { echo "ERROR: VAULT root invalid at $VAULT"; exit 1; }
+[[ -f "$VAULT/CLAUDE.md" ]] || { echo "ERROR: VAULT root invalid at $VAULT (no CLAUDE.md)"; exit 1; }
 
-# Derive vault name from manifest for runtime state directory
-VAULT_NAME=$(awk '/^vault-name:/{gsub(/vault-name:[[:space:]]*|"/, ""); print; exit}' \
-  "$VAULT/ops/vault-manifest.md" 2>/dev/null || echo "unnamed")
-RUNTIME_DIR="$HOME/.claude/vault-runtime/$VAULT_NAME"
-mkdir -p "$RUNTIME_DIR"
+VAULT_NAME=$(basename "$VAULT")
+MANIFEST="$VAULT/ops/vault-manifest.md"
 
-echo "╔══════════════════════════════════════════╗"
-echo "║       $VAULT_NAME ORIENTATION              ║"
-echo "╚══════════════════════════════════════════╝"
-echo "Date: $(date +%Y-%m-%d)"
+echo "╔══════════════════════════════════════════════════════════╗"
+printf "║  %-56s║\n" "${VAULT_NAME} ORIENTATION"
+echo "╚══════════════════════════════════════════════════════════╝"
+echo "Date: $(date +%Y-%m-%d)   hooks v4.1.0"
+echo ""
 
-# Operator profile (always — conditional on file existence)
+# ── Operator profile (personal cross-project surface; organic-write-backed) ───
 if [ -f "$HOME/.claude/operator.md" ]; then
-  echo ""
   echo "--- OPERATOR PROFILE ---"
   cat "$HOME/.claude/operator.md"
-fi
-
-# [CONDITIONAL MODULE B — omit this block if Module B not selected]
-if [ -d "$VAULT/inbox" ]; then
   echo ""
-  echo "--- INBOX ---"
-  COUNT=$(find "$VAULT/inbox" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
-  echo "Transcripts in inbox: $COUNT"
 fi
-# [END MODULE B BLOCK]
 
-# [CONDITIONAL MODULE A — omit this block if Module A not selected]
-if [ -d "$VAULT/notes" ]; then
-  echo ""
-  echo "--- NOTES STRUCTURE ---"
-  find "$VAULT/notes" -maxdepth 1 -name "*.md" | sort | sed "s|$VAULT/notes/||"
-fi
-# [END MODULE A BLOCK]
+# ══════════════════════════════════════════════════════════════════════════════
+# DERIVED — computed live. Nothing here is stored; nothing here can go stale.
+# ══════════════════════════════════════════════════════════════════════════════
+echo "--- DERIVED (computed live — git + disk) ---"
 
-# Last session (always — conditional on file existence)
-echo ""
-echo "--- LAST SESSION ---"
-if [ -f "$VAULT/ops/sessions/last-active.md" ]; then
-  cat "$VAULT/ops/sessions/last-active.md"
+if ! command -v git >/dev/null 2>&1; then
+  echo "⚠ git is not on PATH — cannot compute branch, commits, or push status this session."
+elif ! git -C "$VAULT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "⚠ NOT A GIT REPOSITORY — no version-control history to derive from."
+  echo "  Session continuity is degraded: run 'git init' + first commit to enable DERIVED signals."
 else
-  echo "No prior session."
-fi
+  BRANCH=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  echo "Branch: ${BRANCH:-<unknown>}"
 
-# Decisions (always — conditional on file existence)
-if [ -f "$VAULT/ops/decisions.md" ]; then
-  echo ""
-  echo "--- DECISIONS ---"
-  cat "$VAULT/ops/decisions.md"
-fi
-
-# Knowledge — Core section only (always — conditional on file existence)
-if [ -f "$VAULT/ops/knowledge.md" ]; then
-  echo ""
-  echo "--- KNOWLEDGE ---"
-  if grep -q "^## Core" "$VAULT/ops/knowledge.md" 2>/dev/null; then
-    awk '/^## Core/{found=1; next} found && /^## /{exit} found{print}' \
-      "$VAULT/ops/knowledge.md"
-    CORE_LINES=$(awk '/^## Core/{f=1;next} f&&/^## /{exit} f&&/^-/{c++} END{print c+0}' \
-      "$VAULT/ops/knowledge.md")
-    EXT_COUNT=$(awk '/^## Extended/{f=1;next} f&&/^## /{exit} f&&/^-/{c++} END{print c+0}' \
-      "$VAULT/ops/knowledge.md")
-    DEC_COUNT=$(grep -c "^-" "$VAULT/ops/decisions.md" 2>/dev/null || echo 0)
-    MAINT=""
-    if [ "$EXT_COUNT" -gt 20 ] || [ "$DEC_COUNT" -gt 30 ]; then
-      MAINT=" — /maintain recommended"
-    fi
-    echo "KNOWLEDGE: Core $CORE_LINES lines | Extended $EXT_COUNT entries | decisions.md $DEC_COUNT entries$MAINT"
+  echo "Last 5 commits:"
+  if git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
+    git -C "$VAULT" log -5 --oneline 2>/dev/null | sed 's/^/  /'
   else
-    echo "KNOWLEDGE: knowledge.md has no Core/Extended structure — run /maintain to migrate."
+    echo "  (no commits yet)"
+  fi
+
+  UNCOMMITTED=$(git -C "$VAULT" status --porcelain 2>/dev/null | grep -c .)
+  echo "Uncommitted changes: ${UNCOMMITTED} file(s)"
+
+  UPSTREAM=$(git -C "$VAULT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
+  if [ -n "$UPSTREAM" ]; then
+    UNPUSHED=$(git -C "$VAULT" rev-list --count "${UPSTREAM}..HEAD" 2>/dev/null)
+    echo "Unpushed commits: ${UNPUSHED:-?} (ahead of ${UPSTREAM})"
+  else
+    echo "Unpushed commits: ⚠ no upstream tracking branch — push status unknown (set with: git push -u)"
+  fi
+
+  echo "Recently modified (non-ignored, top 5):"
+  RECENT=$(git -C "$VAULT" ls-files --cached --others --exclude-standard -z 2>/dev/null \
+    | while IFS= read -r -d '' f; do
+        [ -f "$VAULT/$f" ] || continue
+        m=$(stat -c %Y "$VAULT/$f" 2>/dev/null) || continue
+        printf '%s\t%s\n' "$m" "$f"
+      done | sort -rn | head -5 | cut -f2-)
+  if [ -n "$RECENT" ]; then
+    echo "$RECENT" | sed 's/^/  /'
+  else
+    echo "  (none tracked or all ignored)"
   fi
 fi
 
-# Quest context (always — conditional on quest-link field in manifest)
-if [ -f "$VAULT/ops/vault-manifest.md" ]; then
-  QUEST_LINK=$(awk '/^quest-link:/{gsub(/quest-link:[[:space:]]*|"/, ""); print; exit}' \
-    "$VAULT/ops/vault-manifest.md" 2>/dev/null)
-  if [ -n "$QUEST_LINK" ]; then
-    QUEST_FILE="$VAULT/$QUEST_LINK"
-    if [ -f "$QUEST_FILE" ]; then
-      echo ""
-      echo "--- QUEST CONTEXT ---"
-      head -30 "$QUEST_FILE"
-      if ! head -5 "$QUEST_FILE" | grep -qE '^(---|##|\*\*)'; then
-        echo "WARNING: QUEST CONTEXT: no front-matter detected in first 30 lines of $QUEST_LINK." >&2
-        echo "Quest file should open with a summary block." >&2
-      fi
-    else
-      echo "WARNING: quest file not found at $QUEST_LINK. Update ops/vault-manifest.md or create the file." >&2
-    fi
-  fi
-fi
-
-# [CONDITIONAL MODULE A — omit this block if Module A not selected]
+# Last session record + its age
+LAST="$VAULT/ops/sessions/last-active.md"
 echo ""
-echo "--- MODULE A HEALTH ---"
-if [ ! -d "$VAULT/notes" ]; then
-  echo "MODULE A HEALTH: notes/ directory not found — Module A not initialized."
-elif [ ! -f "$VAULT/notes/index.md" ]; then
-  echo "MODULE A HEALTH: notes/index.md not found — MOC link check skipped."
+if [ -f "$LAST" ]; then
+  MT=$(stat -c %Y "$LAST" 2>/dev/null)
+  if [ -n "$MT" ]; then
+    AGE_DAYS=$(( ( $(date +%s) - MT ) / 86400 ))
+    echo "Last session record (ops/sessions/last-active.md, ${AGE_DAYS}d old):"
+  else
+    echo "Last session record (ops/sessions/last-active.md):"
+  fi
+  sed 's/^/  /' "$LAST"
 else
-  NOTE_COUNT=$(find "$VAULT/notes" -maxdepth 1 -name "*.md" \
-    ! -name "*-moc.md" ! -name "index.md" ! -name "dedup-index.md" ! -name "methods.md" \
-    2>/dev/null | wc -l | tr -d ' ')
-  echo "MODULE A HEALTH: $NOTE_COUNT notes tracked, index.md present."
-  for moc in "$VAULT/notes/"*-moc.md; do
-    [ -f "$moc" ] || continue
-    MOC_NAME=$(basename "$moc" .md)
-    if ! grep -q "\[\[$MOC_NAME\]\]" "$VAULT/notes/index.md" 2>/dev/null; then
-      echo "  Unlinked MOC: $MOC_NAME"
-    fi
-  done
+  echo "Last session record: none (no ops/sessions/last-active.md yet)."
 fi
-# [END MODULE A BLOCK]
+echo ""
 
-# Manifest drift check (always — conditional on manifest existence)
-if [ -f "$VAULT/ops/vault-manifest.md" ]; then
+# ══════════════════════════════════════════════════════════════════════════════
+# DECLARED — from compass.md. Things git cannot tell you. Historical if stale.
+# ══════════════════════════════════════════════════════════════════════════════
+# Resolve compass path from the manifest's exports.compass, then fall back.
+EXPORT_COMPASS=""
+if [ -f "$MANIFEST" ]; then
+  EXPORT_COMPASS=$(awk '
+    /^exports:/{inx=1; next}
+    inx && /^[^[:space:]#]/{inx=0}
+    inx && /compass:/{sub(/.*compass:[[:space:]]*/,""); gsub(/"/,""); print; exit}
+  ' "$MANIFEST" | xargs 2>/dev/null)
+fi
+COMPASS=""
+for cand in "$EXPORT_COMPASS" "compass.md" "ops/compass.md"; do
+  [ -n "$cand" ] && [ -f "$VAULT/$cand" ] && { COMPASS="$VAULT/$cand"; break; }
+done
+
+echo "--- DECLARED (compass intent — Focus / Questions / Flags) ---"
+if [ -z "$COMPASS" ]; then
+  echo "⚠ No compass found (looked for exports.compass, compass.md, ops/compass.md)."
+  echo "  Declared intent is unavailable — create a compass so orientation has intent to show."
+else
+  UPDATED=$(grep -oE '\*Updated:[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}\*' "$COMPASS" 2>/dev/null \
+    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+  if [ -n "$UPDATED" ] && U_EPOCH=$(date -d "$UPDATED" +%s 2>/dev/null); then
+    C_AGE=$(( ( $(date +%s) - U_EPOCH ) / 86400 ))
+    if [ "$C_AGE" -gt "$STALE_DAYS" ]; then
+      echo "╔══════════════════════════════════════════════════════════╗"
+      echo "║  ⚠ intent last declared ${C_AGE} days ago — treat as HISTORICAL"
+      echo "║  The compass below reflects intent as of ${UPDATED}, not now."
+      echo "║  Trust the DERIVED section above for current state.       ║"
+      echo "╚══════════════════════════════════════════════════════════╝"
+    fi
+  elif [ -z "$UPDATED" ]; then
+    echo "⚠ compass has no '*Updated: YYYY-MM-DD*' stamp — cannot judge staleness. Add one."
+  else
+    echo "⚠ could not parse compass Updated date '$UPDATED' — staleness unknown."
+  fi
+  cat "$COMPASS"
+fi
+echo ""
+
+# Decisions log (human-authored calls; injected verbatim — D2 keeps it unchanged)
+DECISIONS="$VAULT/ops/decisions.md"
+if [ -f "$DECISIONS" ]; then
+  echo "--- DECISIONS ---"
+  cat "$DECISIONS"
+  # Volume signal. Corrected char class (was '^[^[:space:]-#]' which raises Invalid range end;
+  # '-' must be last in a bracket expression). Counts non-blank, non-comment, non-bullet lines.
+  DEC_COUNT=$(grep -c '^[^[:space:]#-]' "$DECISIONS" 2>/dev/null)
+  DEC_COUNT=${DEC_COUNT:-0}
   echo ""
-  echo "--- MANIFEST DRIFT CHECK ---"
-  TODAY=$(date +%Y-%m-%d)
-  LAST_VERIFIED=$(awk '/^last-verified:/{gsub(/last-verified:[[:space:]]*|"/, ""); print; exit}' \
-    "$VAULT/ops/vault-manifest.md" 2>/dev/null)
-  WARN_FILE="$RUNTIME_DIR/.last-manifest-warning"
-  LAST_WARNED=$(cat "$WARN_FILE" 2>/dev/null || echo "1970-01-01")
-  if [ -n "$LAST_VERIFIED" ] && [ "$LAST_WARNED" != "$TODAY" ]; then
-    DAYS_OLD=$(python3 -c \
-      "from datetime import date; print((date.today()-date.fromisoformat('$LAST_VERIFIED')).days)" \
-      2>/dev/null || echo 0)
-    if [ "$DAYS_OLD" -gt 7 ]; then
-      echo "⚠️  MANIFEST: last-verified $LAST_VERIFIED is $DAYS_OLD days old. Review and stamp ops/vault-manifest.md."
-      echo "$TODAY" > "$WARN_FILE"
-    fi
-  fi
-  # Check export-surfaces paths exist
-  awk '/^export-surfaces:/{f=1;next} f&&/^[a-z]/{exit} f&&/:[[:space:]]+[^[#{]/{print}' \
-    "$VAULT/ops/vault-manifest.md" | grep -oP ':[[:space:]]+\K[\w/.-]+' | while read -r path; do
-    [ -n "$path" ] && [ ! -e "$VAULT/$path" ] && \
-      echo "⚠️  DRIFT: export-surface '$path' not found. Update ops/vault-manifest.md."
-  done
-  # Quest-link file existence
-  QUEST_LINK=$(awk '/^quest-link:/{gsub(/quest-link:[[:space:]]*|"/, ""); print; exit}' \
-    "$VAULT/ops/vault-manifest.md" 2>/dev/null)
-  if [ -n "$QUEST_LINK" ] && [ ! -f "$VAULT/$QUEST_LINK" ]; then
-    echo "WARNING: quest file not found at $QUEST_LINK. Fix: update quest-link or create the file."
-  fi
+  echo "decisions.md: ${DEC_COUNT} content line(s)"
+  echo ""
 fi
 
-# Operational state — always last
-echo ""
-echo "--- OPERATIONAL STATE ---"
-cat "$VAULT/compass.md" 2>/dev/null || echo "(compass.md not found)"
+# ══════════════════════════════════════════════════════════════════════════════
+# PRE-V4 CHECK (D8) — offer migration when this vault predates the context contract.
+# ══════════════════════════════════════════════════════════════════════════════
+if [ -f "$MANIFEST" ] && ! grep -q '^exports:' "$MANIFEST" 2>/dev/null; then
+  echo "--- MIGRATION ---"
+  echo "⚠ PRE-V4 VAULT: ops/vault-manifest.md has no 'exports:' contract. This vault predates"
+  echo "  Vault OS v4. Offer to migrate it (slim compass, context-contract manifest, native"
+  echo "  permissions, v4 hooks) — see spec/vault-os-v4.md in the vault-os repo."
+  echo ""
+fi
 
-echo ""
-echo "╔══════════════════════════════════════════╗"
-echo "║  Run /capture before closing this tab.   ║"
-echo "╚══════════════════════════════════════════╝"
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  Continuity is computed. /capture only adds narrative.    ║"
+echo "╚══════════════════════════════════════════════════════════╝"
 ```
 
 **Hard constraints:**
 - `VAULT` set from `$CLAUDE_PROJECT_DIR` with sentinel check — never hardcode paths.
-- Do NOT cat CLAUDE.md, notes, or any file beyond those listed above.
-- Module A and B blocks are included or omitted at scaffold time based on module selection.
-- `RUNTIME_DIR` created before any suppress file read or write.
+- Do NOT cat CLAUDE.md, notes, or any file beyond compass / decisions / last-active / operator.md.
+- Keep the `--selftest` block and the `vault-os-hook-version: 4.1.0` stamp intact.
+- Everything fails loudly (D6): a check that cannot run says so; it never defaults to "fine".
 
 ---
 
 ### T-CAPTURE: `.claude/hooks/session-capture.sh`
 
-Fallback for clean `/exit`. Primary capture is `/capture` (VS Code tab close does not fire SessionEnd).
+Write this file verbatim (vault-os v4.1.0). Minimal machine record on SessionEnd; `/capture` enriches with narrative when invoked. Fires on clean exits only (NOT VS Code tab close). Must not clobber a richer same-day `/capture` record.
 
 ```bash
 #!/bin/bash
-# session-capture.sh — Fires at SessionEnd on clean exit.
-# Primary capture path: /capture slash command.
+# session-capture.sh — Vault OS v4 (D2: capture is a hook with a skill on top)
+# vault-os-hook-version: 4.1.0
+# Fires at SessionEnd (clean exits only — does NOT fire on VS Code tab close).
+#
+# Reliability tiers (D2):
+#   1. THIS hook writes a minimal machine record when it fires.
+#   2. /capture enriches with narrative when invoked — optional, never load-bearing.
+#   3. DERIVED orientation (session-orient.sh) is the safety net — git is the record of last resort.
+# This hook must not clobber a richer /capture record written the same day (same-day marker check).
+
+# ── Selftest: verify this hook's own dependencies, loudly ─────────────────────
+if [ "${1:-}" = "--selftest" ]; then
+  SELFTEST_FAIL=0
+
+  if TODAY_CHECK=$(date +%Y-%m-%d 2>/dev/null) && [ -n "$TODAY_CHECK" ] \
+     && TIME_CHECK=$(date +%H:%M 2>/dev/null) && [ -n "$TIME_CHECK" ]; then
+    echo "PASS: date +%Y-%m-%d / +%H:%M format (${TODAY_CHECK} ${TIME_CHECK})"
+  else
+    echo "FAIL: date +%Y-%m-%d or +%H:%M produced no output — cannot stamp session record"
+    SELFTEST_FAIL=1
+  fi
+
+  if printf 'Source: auto-generated by session-capture.sh\n' \
+       | grep -q 'auto-generated by session-capture.sh'; then
+    echo "PASS: grep -q works — same-day/self-stub detection available"
+  else
+    echo "FAIL: grep -q did not match expected sample — skip-overwrite check unavailable"
+    SELFTEST_FAIL=1
+  fi
+
+  if command -v git >/dev/null 2>&1; then
+    echo "PASS: git is on PATH ($(git --version 2>/dev/null)) — files-touched approximation available"
+  else
+    echo "WARN: git not on PATH — files-touched list will be empty (record still written)"
+  fi
+
+  SELFTEST_VAULT="${CLAUDE_PROJECT_DIR:-$PWD}"
+  if [ -d "$SELFTEST_VAULT" ] && { [ -d "$SELFTEST_VAULT/ops" ] || [ -w "$SELFTEST_VAULT" ]; }; then
+    echo "PASS: $SELFTEST_VAULT/ops/sessions write target has a reachable parent"
+  else
+    echo "FAIL: $SELFTEST_VAULT is not reachable/writable — cannot write last-active.md"
+    SELFTEST_FAIL=1
+  fi
+
+  if [ "$SELFTEST_FAIL" -eq 0 ]; then
+    echo "SELFTEST: all checks passed"
+    exit 0
+  else
+    echo "SELFTEST: one or more checks failed"
+    exit 1
+  fi
+fi
 
 VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be invoked by Claude Code}"
 mkdir -p "$VAULT/ops/sessions"
+
+LAST="$VAULT/ops/sessions/last-active.md"
+DATE=$(date +%Y-%m-%d)
+TIME=$(date +%H:%M)
+SELF_MARK="auto-generated by session-capture.sh"
+
+# Same-day marker check: if a record dated today already exists and it is NOT this hook's own
+# stub, a richer /capture record was written this session — preserve it, do not clobber.
+if [ -f "$LAST" ] \
+   && grep -q "^Date: ${DATE}" "$LAST" 2>/dev/null \
+   && ! grep -q "$SELF_MARK" "$LAST" 2>/dev/null; then
+  exit 0
+fi
+
+# Files touched — APPROXIMATION. SessionEnd cannot diff against session start (no start snapshot
+# is available to the hook), so we approximate with the current uncommitted working-tree changes
+# plus the files in today's most recent commit. This over-counts (pre-existing dirty files) and
+# under-counts (changes already committed on an earlier day). /capture gives the accurate story.
+BRANCH="(not a git repo)"
+FILES=""
+if command -v git >/dev/null 2>&1 && git -C "$VAULT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  BRANCH=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  DIRTY=$(git -C "$VAULT" status --porcelain 2>/dev/null | awk '{print $NF}')
+  TODAY_COMMIT=""
+  if git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
+    LAST_COMMIT_DATE=$(git -C "$VAULT" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null)
+    if [ "$LAST_COMMIT_DATE" = "$DATE" ]; then
+      TODAY_COMMIT=$(git -C "$VAULT" show --name-only --format= HEAD 2>/dev/null)
+    fi
+  fi
+  FILES=$(printf '%s\n%s\n' "$DIRTY" "$TODAY_COMMIT" | grep -v '^$' | sort -u)
+fi
+
 {
-  echo "Date: $(date +%Y-%m-%d)"
+  echo "Date: ${DATE} ${TIME}"
+  echo "Branch: ${BRANCH:-<unknown>}"
+  echo "Source: ${SELF_MARK} (SessionEnd hook — clean exit only; does NOT fire on VS Code tab close)"
   echo ""
-  echo "Session ended via clean exit. Run /capture for a full paragraph summary."
-} > "$VAULT/ops/sessions/last-active.md"
+  echo "Files touched (approximation — see note):"
+  if [ -n "$FILES" ]; then
+    echo "$FILES" | sed 's/^/  - /'
+  else
+    echo "  (none detected — clean tree, or not a git repo)"
+  fi
+  echo ""
+  echo "Note: SessionEnd cannot diff against session start. The list above is uncommitted"
+  echo "working-tree changes plus files in today's most recent commit — an approximation, not"
+  echo "a session diff. Run /capture for a narrative summary of what was actually done and why."
+} > "$LAST"
 ```
 
 ---
@@ -758,186 +921,76 @@ type-vocabulary:
 
 ---
 
-### T-PROTECT: `.claude/hooks/protect.py` (Module D only)
-
-```python
-#!/usr/bin/env python3
-"""
-protect.py — Fires on PostToolUse Write.
-Warns when a file listed in .claude/protected-files.txt is written to.
-"""
-
-import sys
-import json
-import os
-
-VAULT = os.environ.get("CLAUDE_PROJECT_DIR", "")
-if not VAULT:
-    sys.exit(0)
-
-PROTECTED_LIST = os.path.join(VAULT, ".claude", "protected-files.txt")
-
-
-def main():
-    try:
-        data = json.load(sys.stdin)
-    except Exception:
-        sys.exit(0)
-
-    file_path = data.get("tool_input", {}).get("file_path", "")
-    if not file_path:
-        sys.exit(0)
-
-    try:
-        with open(PROTECTED_LIST, "r", encoding="utf-8") as f:
-            protected = [
-                line.strip() for line in f
-                if line.strip() and not line.startswith("#")
-            ]
-    except FileNotFoundError:
-        sys.exit(0)
-
-    if not protected:
-        sys.exit(0)
-
-    norm_vault = VAULT.replace("\\", "/").rstrip("/")
-    norm_written = file_path.replace("\\", "/")
-    if norm_written.startswith(norm_vault + "/"):
-        relative = norm_written[len(norm_vault) + 1:]
-    else:
-        relative = norm_written
-
-    if relative in protected:
-        print(f"\n⚠️  PROTECTED FILE — {relative}")
-        print("   Requires explicit user permission before modifying.")
-
-
-if __name__ == "__main__":
-    main()
-```
-
----
-
-### T-PROTECTED: `.claude/protected-files.txt` (Module D only)
-
-```
-# Protected files — one relative path per line (from vault root)
-# Example: CLAUDE.md
-# Keep in sync with the Protected Files section in CLAUDE.md.
-# The protect.py hook reads this file on every Write event.
-```
-
----
-
 ### T-SETTINGS: `.claude/settings.json`
 
 Event keys: `"SessionStart"` and `"SessionEnd"` exactly — not `"Start"` / `"Stop"` / `"SessionStop"`.
 `SessionStart` with blank matcher (`""`) matches all sources: startup, resume, clear, compact.
-PostToolUse Write hook required only when Module A or Module D is present.
+Commands use `bash "$CLAUDE_PROJECT_DIR"/...` for robust path resolution regardless of cwd.
 
-**Neither A nor D selected:**
+The `permissions.ask` block is **always written** — it gates protected files with native, pre-write
+prompts (D5). Rule syntax verified against the official Claude Code permissions docs: `Edit(/path)`
+and `Write(/path)` use gitignore-spec patterns; a leading `/path` anchors at the project root (the
+settings source); a Read/Edit rule does NOT cover Write, so each protected file needs BOTH an
+`Edit(...)` and a `Write(...)` rule. No `protect.py`, no `protected-files.txt`.
+
+**Baseline (Module A not selected):**
 
 ```json
 {
+  "permissions": {
+    "ask": [
+      "Edit(/CLAUDE.md)",
+      "Write(/CLAUDE.md)",
+      "Edit(/ops/vault-manifest.md)",
+      "Write(/ops/vault-manifest.md)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
         "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-orient.sh"}]
+        "hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-orient.sh"}]
       }
     ],
     "SessionEnd": [
       {
         "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-capture.sh"}]
+        "hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-capture.sh"}]
       }
     ]
   }
 }
 ```
 
-**Module A selected, Module D not selected:**
+**Module A selected (adds the `validate-note.py` PostToolUse Write hook):**
 
 ```json
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-orient.sh"}]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-capture.sh"}]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {"type": "command", "command": "python .claude/hooks/validate-note.py"}
-        ]
-      }
+  "permissions": {
+    "ask": [
+      "Edit(/CLAUDE.md)",
+      "Write(/CLAUDE.md)",
+      "Edit(/ops/vault-manifest.md)",
+      "Write(/ops/vault-manifest.md)"
     ]
-  }
-}
-```
-
-**Module D selected, Module A not selected:**
-
-```json
-{
+  },
   "hooks": {
     "SessionStart": [
       {
         "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-orient.sh"}]
+        "hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-orient.sh"}]
       }
     ],
     "SessionEnd": [
       {
         "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-capture.sh"}]
+        "hooks": [{"type": "command", "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-capture.sh"}]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write",
-        "hooks": [
-          {"type": "command", "command": "python .claude/hooks/protect.py"}
-        ]
-      }
-    ]
-  }
-}
-```
-
-**Both Module A and Module D selected:**
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-orient.sh"}]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "matcher": "",
-        "hooks": [{"type": "command", "command": "bash .claude/hooks/session-capture.sh"}]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write",
-        "hooks": [
-          {"type": "command", "command": "python .claude/hooks/validate-note.py"},
-          {"type": "command", "command": "python .claude/hooks/protect.py"}
-        ]
+        "hooks": [{"type": "command", "command": "python \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/validate-note.py"}]
       }
     ]
   }
@@ -1003,18 +1056,19 @@ Adapt verbs to the vault's actual cognitive mode. Three bold verbs always. Alway
 
 **§3 — Commands Table (Always)**
 
-Include only commands from selected modules. Always include all five baseline commands.
+Include only commands from selected modules. Always include the four baseline commands. Precede the table with: "This table IS the command reference. `/guide` renders it — there is no separate guide file."
 
 ```
 ## Commands
 
+This table IS the command reference. `/guide` renders it — there is no separate guide file.
+
 | Command | Purpose |
 |---|---|
-| `/compass` | Vault state, progress, live questions |
-| `/guide` | Show full command reference |
-| `/capture` | Write paragraph session summary to ops/sessions/last-active.md — write as if briefing someone resuming cold. Run before closing. |
-| `/decide` | Capture current decision to ops/decisions.md — run at moment of decision, not session end |
-| `/maintain` | Periodic maintenance: decisions.md review, knowledge.md pruning and graduation |
+| `/compass` | Read the compass, or update Focus / Questions / Flags with what changed |
+| `/guide` | Render this Commands table |
+| `/capture` | Write a narrative session summary to ops/sessions/last-active.md (optional — never load-bearing) |
+| `/decide` | Append an operational decision to ops/decisions.md at the moment it is made |
 ```
 
 Add rows for each module's commands:
@@ -1034,29 +1088,23 @@ Add rows for each module's commands:
 
 | Layer | File | What lives there |
 |---|---|---|
-| Contract | `CLAUDE.md` | Rules, schema, commands, architecture, constraints |
-| Knowledge | `ops/knowledge.md` | Stable project-specific knowledge accumulated over sessions |
-| Decisions | `ops/decisions.md` | Fresh operational decisions — calls made, not yet proven stable |
-| Position | `compass.md` | Live operational state — counts, progress, questions, flags. Hot Files and Key Files. |
-| Manual | `ops/guide.md` | Expanded command reference |
+| Contract | `CLAUDE.md` | Rules, schema, commands, architecture, constraints — no live state |
+| Decisions | `ops/decisions.md` | Operational calls made, captured at the moment of insight |
+| Position | `compass.md` | DECLARED intent only — Focus / Questions / Flags. No derived/live state. |
+| Derived | (computed) | Branch, commits, uncommitted/unpushed, recent files, last session — from `session-orient.sh`, never stored |
 
 **When you learn or decide something, route it:**
 
 | Signal | Destination |
 |---|---|
-| "We're not doing X because Y" (call made) | `ops/decisions.md` |
-| "It turns out X works this way" (stable fact) | `ops/knowledge.md` |
-| "What I'm tracking right now" (live state) | `compass.md` |
-| "Last session I worked on X" (session summary) | `ops/sessions/last-active.md` |
+| "We're not doing X because Y" (call made) | `ops/decisions.md` (run `/decide`) |
+| "What this vault is trying to do now" (intent) | `compass.md` Focus |
+| "An open decision that affects direction" | `compass.md` Questions |
+| "A known hazard / blocker" | `compass.md` Flags |
 | "This applies to how I work in all projects" | `~/.claude/operator.md` |
 | "This is a rule for this vault" | `CLAUDE.md` |
 
-**Knowledge graduation path:**
-```
-decisions.md  →  (proven stable)  →  ops/knowledge.md Extended
-ops/knowledge.md Extended  →  (curated via /maintain)  →  ops/knowledge.md Core
-ops/knowledge.md Core  →  (applies across all projects)  →  ~/.claude/operator.md
-```
+Do NOT write current state, session narrative, or counts into any file — that is DERIVED and computed live by orientation (D1).
 ```
 
 ---
@@ -1077,18 +1125,16 @@ Scaffold with 2–3 placeholder rows. User fills for their session types. No row
 
 ---
 
-**§6 — Session Handoff (Module D)**
+**§6 — Session Handoff (Always — one-liner, genre retired in v4)**
+
+Write verbatim. Do NOT scaffold a fill-in handoff block (D1 retires the genre):
 
 ```
 ## Session Handoff
 
-**Last session:** [date]
-**Current state:** [what is working; active branch or feature]
-**What's broken:** [nothing / describe]
-**In progress:** [nothing / describe]
+There is no handoff block — the genre is retired (D1). Continuity is computed: `session-orient.sh`
+prints live DERIVED state every session and the compass carries DECLARED intent. Read those.
 ```
-
-Blank template. Updated at session end. Never leave stale.
 
 ---
 
@@ -1132,16 +1178,18 @@ Blank template. Updated at session end. Never leave stale.
 
 ---
 
-**§10 — Protected Files (Module D)**
+**§10 — Protected Files (Always — documents the native permission rules)**
+
+Write verbatim. This section DOCUMENTS the native `permissions.ask` rules in `.claude/settings.json`; it is not a parallel list:
 
 ```
 ## Protected Files
 
-Files requiring explicit user permission before modification:
-
-- [list protected files here]
-
-See `.claude/protected-files.txt` for hook consumption. Keep this list in sync with that file.
+`CLAUDE.md` and `ops/vault-manifest.md` are gated by native permission rules in
+`.claude/settings.json` (`permissions.ask`). The harness prompts for approval BEFORE any Edit or
+Write to these paths — enforcement is native and pre-write, not a warn-after hook. To protect
+another file, add both `Edit(/path)` and `Write(/path)` to the `ask` array (a Read/Edit rule does
+not cover Write). There is no protected-files.txt and no protect.py.
 ```
 
 ---
@@ -1293,24 +1341,19 @@ Write universal anti-patterns verbatim first, then add module-specific entries:
 ```
 ## Anti-Patterns
 
-**Don't read all context files upfront.** Burns context window before any work happens.
-**Don't reason from scratch instead of pulling from graph.** Defeats the vault's purpose.
+**Don't paste live state into CLAUDE.md or the compass.** State is computed by orientation; a stored copy only goes stale and misdirects.
+**Don't read all context files upfront.** Orientation already gave you the map — load on demand, by session intent.
+**Don't reason from scratch.** Pull from ops/decisions.md, the compass, and git history first.
 **Don't presume the form of the solution.** Locks architecture before the problem is understood.
 **Don't cargo-cult another vault's architecture.** Different problem, different constraints.
-**Don't catch and swallow errors.** Hides failure; corrupts state silently.
+**Don't catch and swallow errors in hooks.** A check that cannot run must say so; it never defaults to "fine."
 **Don't hardcode domain data in logic.** Makes the system brittle to configuration changes.
-**Don't produce generic analysis without grounding in project constraints.** Outputs that could apply to any project = useless.
-**Don't over-specify upfront.** Design should emerge from the problem.
-**Don't create notes before deduplicating.** Compounds overlap across high-volume vaults.
-**Don't embed live state in CLAUDE.md.** CLAUDE.md is the contract; compass.md is the current position.
-**Don't leave ops/sessions/last-active.md stale.** Stale handoff is worse than no handoff — it misdirects the next session.
-**Don't write to decisions.md at session end.** Capture at the moment of insight; nuance is gone by session end.
-**Don't route project-specific knowledge to operator.md.** operator.md is for patterns that apply everywhere; use knowledge.md for project-specific facts.
+**Don't write to decisions.md at session end.** Capture at the moment of insight; run /decide.
+**Don't skip /decide at the moment a decision is made.** Missing an entry means the next session re-litigates from scratch.
 **Don't use SessionStop as a hook event.** It does not exist; hooks wired to it silently never fire.
 **Don't rely on SessionEnd for VS Code tab close.** It doesn't fire on tab close; use /capture instead.
-**Don't update a vault's health without reading its compass first.** Stale state misdirects.
-**Don't write to a foreign vault's knowledge graph without explicit instruction.** Cross-vault writes require user authorization.
-**Don't skip /decide at the moment a decision is made.** Decisions lose nuance by session end; missing an entry means the next session re-litigates from scratch.
+**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is invisible cross-vault — notes/ above all.
+**Don't write to a foreign vault's knowledge graph without explicit instruction.** Deposit into its declared `intake:` instead; never edit in place.
 **Don't apply local vault schema rules to foreign vault content.** Each vault has its own schema and validate hooks.
 **Don't prune operator.md entries autonomously.** Cross-session entry value is invisible to a single-session observer; flag and defer to human.
 ```
@@ -1338,73 +1381,35 @@ Always begins with "Sharp. No wasted words." Always includes the session intent 
 
 ### T-COMPASS: `compass.md`
 
-Location: always `compass.md` at vault root.
+Location: always `compass.md` at vault root. **Slim (D1): exactly Focus / Questions / Flags + the `*Updated:*` stamp and the contract comment.** No Vault State, Key Files, or Hot Files tables — those are derived state and belong to the orient hook, not the compass.
 
 ```markdown
+<!--
+COMPASS CONTRACT — Vault OS v4 (D1: continuity is computed, not curated)
+Holds ONLY what git cannot tell you: declared intent, open decisions, known hazards.
+DERIVED state (branch, commits, uncommitted/unpushed, recent files, last session) is computed
+live by session-orient.sh every session — never write it here. Update *Updated:* when you edit a
+section; past 30 days orientation treats this content as historical.
+-->
+
 # Compass
 
 *Updated: {{SCAFFOLD_DATE}}*
 
-## Vault State
+## Focus
 
-[Initialized. No content processed yet.]
+[What this vault is trying to do right now — one or two sentences of intent, not history. Vault just created.]
 
-## Current Focus
+## Questions
 
-[Nothing yet — vault just created.]
-
-## Live Questions
-
-[None.]
+[Open decisions that affect direction. Number them. None yet.]
 
 ## Flags
 
-[None.]
+[Known hazards or blockers. None.]
 ```
 
-**If Module D or E selected**, append Key Files table:
-
-```markdown
-## Key Files
-
-| File | Purpose |
-|---|---|
-| | |
-```
-
-**If Module D selected**, also append Hot Files table:
-
-```markdown
-## Hot Files
-
-| File | Purpose |
-|---|---|
-| | |
-```
-
-Blank rows at scaffold time. User fills after creation. These tables live in compass.md, not CLAUDE.md.
-
----
-
-### T-KNOWLEDGE: `ops/knowledge.md` (Always)
-
-```markdown
-# Knowledge
-
-*Project-specific knowledge accumulated over sessions.*
-*New entries land in Extended. Graduate to Core via /maintain.*
-
-## Core
-
-<!-- Always injected at session start. Hard cap: 60 lines. -->
-<!-- Entries are curated, high-signal facts that change how every session operates. -->
-<!-- Graduate from Extended via /maintain. -->
-
-## Extended
-
-<!-- Default landing zone. Load on demand. No cap. -->
-<!-- Format: - [fact or proven pattern] (YYYY-MM-DD) -->
-```
+Do NOT append Key Files or Hot Files tables (retired in v4). Modules D and E add their tables to CLAUDE.md, not the compass.
 
 ---
 
@@ -1417,7 +1422,7 @@ Blank rows at scaffold time. User fills after creation. These tables live in com
 *Run /decide at the moment a decision is made — not at session end.*
 
 <!-- Format: - [YYYY-MM-DD] Decision: [what]. Because: [rationale]. Forecloses: [what this rules out]. -->
-<!-- Graduate to knowledge.md when proven stable. Delete when reversed or project moves on. -->
+<!-- Delete an entry when it is reversed or the project moves past it. -->
 ```
 
 ---
@@ -1522,45 +1527,44 @@ Filename: `notes/[domain-slug]-moc.md`
 
 ### T-MANIFEST: `ops/vault-manifest.md` (Always)
 
-Required fields: `vault-name`, `features`, `root-path`, `created`, `last-verified`, `load-instruction`. A manifest missing any of these cannot be used for cross-vault loading.
+v4 context contract (D3). YAML frontmatter (`---` delimited, consistent with the meta-vault registry). Required fields: `vault-name`, `root-path`, `created`, `last-verified`, `features`, `domains`, and an `exports:` block. A manifest missing `exports:` is read by the orient hook as pre-v4 and triggers a migration offer.
 
 ```yaml
 ---
+# ─────────────────────────────────────────────────────────────────────────────
+# VAULT MANIFEST — Vault OS v4 context contract (D3: sharing by contract, isolation by default)
+#   exports: — the ONLY surfaces a foreign session/agent may READ. Everything not listed is
+#              invisible cross-vault (notes/ above all). Isolation is default; sharing is opt-in.
+#   intake:  — (optional) deposit-only inbound surface; foreign writers drop new files, never edit.
+#   domains: — discovery metadata; foreign intent must match before any load is allowed.
+# ─────────────────────────────────────────────────────────────────────────────
 vault-name: {{VAULT_NAME}}
-features: [{{FEATURES_LIST}}]
 root-path: {{VAULT_PATH}}
 created: {{SCAFFOLD_DATE}}
 last-verified: {{SCAFFOLD_DATE}}
+features: [{{FEATURES_LIST}}]
 domains:
   - [domain 1 from Phase 0]
   - [domain 2 from Phase 0]
-export-surfaces:
+
+exports:
   compass: compass.md
-  [If Module A:] index: notes/index.md
-  [If Module A:] notes-dir: notes/
-  [If Module B:] inbox-dir: inbox/
-  [If Module B:] backlog: ops/processing-backlog.md
-  [If Module F:] architecture-dir: architecture/
-  [If Module F:] context-dir: context/
-# quest-link: quests/filename.md  # Optional — links this vault to a life-goal quest file
-load-instruction:
-  - "Read ops/vault-manifest.md"
-  - "Read compass.md"
-  [If Module A:] - "Read notes/index.md"
-  [If Module A:] - "Identify relevant domain MOC from index"
-  [If Module A:] - "Read target MOC; follow prose links to specific notes only"
-  - "Stop when session context need is satisfied"
+  [If Module A:] index: notes/index.md      # export the graph ENTRY POINT only — never notes/ itself
+  [If Module F:] architecture: architecture/
+  # Anything not listed here is invisible cross-vault. Do NOT export notes/.
+
+# intake:                # optional — deposit-only surface for foreign writers/agents
+#   [If Module B:] inbox: inbox/
+
 cross-vault-dependencies: []
-# cross-vault-dependencies entry format:
-#   - vault: /absolute/path/to/vault
-#     slug: 8charsha1    # SHA1(normalized root-path)[:8]
-#     loads-from: [domains or files]
+# Declare an entry ONLY if THIS vault loads from another. Shape:
+#   - vault: /absolute/path/to/other-vault   # absolute, forward slashes, no trailing slash
+#     slug: 8charsha1                          # first 8 chars of SHA1(normalized root-path)
+#     loads-from: [compass]                    # which of that vault's declared EXPORTS this vault reads
 ---
 ```
 
-Emit only the `export-surfaces` keys and `load-instruction` lines that apply to selected modules. Remove the `[If Module X:]` markers from the final file.
-
-If no domains were identified in Phase 0, write `  - [none yet — add as vault is built]` under `domains:`.
+Emit only the `exports:` / `intake:` keys that apply to selected modules. Remove the `[If Module X:]` markers from the final file. If no domains were identified in Phase 0, write `  - [none yet — add as vault is built]` under `domains:`.
 
 ---
 
@@ -1587,28 +1591,27 @@ $ARGUMENTS
 
 Read `compass.md` in full.
 
-If no argument: produce an interpreted report —
-1. **Vault State** — coverage, completeness, outstanding work
-2. **Current Focus** — what is active
-3. **Live Questions** — unresolved items, priority ordered
-4. **Flags** — anything blocking progress
-Be honest. Don't inflate progress.
+If no argument: produce an interpreted report of the three DECLARED sections —
+1. **Focus** — what the vault is trying to do now
+2. **Questions** — open decisions, priority ordered
+3. **Flags** — known hazards / blockers
+Do NOT restate git-derived state here (branch, commits, counts) — that is DERIVED and already
+shown by orientation. Be honest; don't inflate.
 
-If argument provided — something changed:
-1. Parse what happened
-2. Update relevant sections of compass.md
+If argument provided — intent changed:
+1. Parse what changed
+2. Update the relevant section(s) of compass.md — Focus / Questions / Flags only
 3. Update `*Updated: [date]*` timestamp to today
-4. Rewrite compass.md with all updates applied
-5. Report: which sections changed
+4. Report: which sections changed
 
-Keep it honest. The compass is only useful if it reflects reality.
+Keep it honest. The compass holds only what git cannot tell you.
 ```
 
 ---
 
-### T-CMD-GUIDE, T-CMD-CAPTURE, T-CMD-DECIDE, T-CMD-MAINTAIN
+### T-CMD-GUIDE, T-CMD-CAPTURE, T-CMD-DECIDE
 
-These are global commands (`~/.claude/commands/`). Do not scaffold them locally. They are available in every vault automatically.
+These are global commands (`~/.claude/commands/`). Do not scaffold them locally. They are available in every vault automatically. `/guide` renders CLAUDE.md's Commands table (there is no `ops/guide.md`). `/maintain` is retired in v4 along with `knowledge.md` — do not reference it.
 
 ---
 
@@ -1834,81 +1837,20 @@ Report: what was found, what was updated, what remains unverified.
 
 ---
 
-### T-GUIDE: `ops/guide.md`
-
-Assemble from selected modules. Include only commands that exist in this vault.
-Substitute `{{VAULT_NAME}}`, `{{VAULT_PATH}}`, `{{FEATURES_LIST}}`, `{{SCAFFOLD_DATE}}`.
-
-```markdown
-# {{VAULT_NAME}} — Command Reference
-
-## Core (always available)
-
-| Command | Usage | Purpose |
-|---|---|---|
-| `/compass` | `/compass` or `/compass [what changed]` | Read vault state. With argument: update compass with what happened. |
-| `/guide` | `/guide` | Show this reference. |
-| `/capture` | `/capture` | Write paragraph session summary. Run before closing. |
-| `/decide` | `/decide [optional: decision text]` | Capture current decision to ops/decisions.md. Run at moment of decision. |
-| `/maintain` | `/maintain` | Periodic maintenance: decisions.md review, knowledge.md pruning and graduation. |
-
-[Include section below only if Module A selected:]
-
-## Knowledge Graph
-
-| Command | Usage | Purpose |
-|---|---|---|
-| `/reduce` | `/reduce filename.ext` | Process source from inbox into atomic notes. |
-| `/reflect` | `/reflect` | Vault health audit. Writes dated report to ops/health/. |
-| `/connect` | `/connect [note-slug or concept]` | Find non-obvious cross-domain connections. |
-| `/think` | `/think [question]` | Cross-domain synthesis. Reasons; does not summarize. |
-
-[Include section below only if Module C selected:]
-
-## Synthesis
-
-| Command | Usage | Purpose |
-|---|---|---|
-| `/brief` | `/brief [question]` | Fast synthesis memo, max 400 words. Pull from vault only. |
-| `/challenge` | `/challenge [note or claim]` | Steel-man then attack. |
-
-[Include section below only if Module G selected:]
-
-## Intelligence Scanning
-
-| Command | Usage | Purpose |
-|---|---|---|
-| `/scan` | `/scan [topic]` | Live web intelligence sweep. Updates or creates notes with sourced URLs. |
-
----
-
-## Vault Info
-
-- **Root:** {{VAULT_PATH}}
-- **Compass:** compass.md
-- **Features:** {{FEATURES_LIST}}
-- **Created:** {{SCAFFOLD_DATE}}
-```
-
----
-
 ## Verification Checklist
 
 After scaffolding, verify:
 
-1. Open vault root in a new Claude Code session → `session-orient.sh` fires; vault name and compass appear in system-reminder
-2. `compass.md` exists at vault root; contains the initialized template
-3. `ops/vault-manifest.md` has all 6 required fields: `vault-name`, `features`, `root-path`, `created`, `last-verified`, `load-instruction`
-4. `.claude/settings.json` uses `"SessionStart"` and `"SessionEnd"` (not "SessionStop")
-5. `ops/knowledge.md` has `## Core` and `## Extended` sections
-6. `ops/decisions.md` exists with header comment
-7. **If Module A:** `ops/validate-config.yaml` exists with `type-vocabulary` list
-8. **If Module A:** Write a malformed note to `notes/` → `validate-note.py` outputs violation with "Fix before moving on."
-9. **If Module A:** Write a note with a type value not in validate-config.yaml → check 7 fires with controlled vocabulary error
-10. **If Module A:** Write a valid note without registering in `dedup-index.md` → check 12 fires
-11. **If Module A:** Write a MOC file with a bare `- [[link]]` line in Core Ideas → bare-link warning fires
-12. **If Module D:** Write to a path listed in `.claude/protected-files.txt` → `protect.py` warns
-13. Introduce a missing export-surface path in `vault-manifest.md` → drift warning appears on next SessionStart
-14. Run `/guide` → shows all installed commands for selected modules
-15. Run `/compass` → reads compass and returns oriented report
-16. **If Module A + C:** Run `/brief [question]` → reads compass, navigates graph, returns memo
+1. `bash .claude/hooks/session-orient.sh --selftest` passes; `bash .claude/hooks/session-capture.sh --selftest` passes
+2. Open vault root in a new Claude Code session → orientation fires; DERIVED (branch/commits/…) and DECLARED (compass Focus/Questions/Flags) both appear
+3. `compass.md` exists at vault root with exactly Focus / Questions / Flags + an `*Updated:*` stamp (no Vault State / Key Files / Hot Files)
+4. `ops/vault-manifest.md` frontmatter has `vault-name`, `root-path`, `created`, `last-verified`, `features`, `domains`, and an `exports:` block
+5. `.claude/settings.json` is valid JSON; wires `"SessionStart"` and `"SessionEnd"` (not "SessionStop") with `bash "$CLAUDE_PROJECT_DIR"/…` commands
+6. `.claude/settings.json` has `permissions.ask` rules: `Edit(/CLAUDE.md)`, `Write(/CLAUDE.md)`, `Edit(/ops/vault-manifest.md)`, `Write(/ops/vault-manifest.md)`
+7. Editing `CLAUDE.md` triggers a native permission prompt; there is NO `protect.py` and NO `protected-files.txt`; there is NO `ops/knowledge.md` and NO `ops/guide.md`
+8. `ops/decisions.md` exists with header comment
+9. **If Module A:** `ops/validate-config.yaml` exists with `type-vocabulary`; `validate-note.py` present and wired as a PostToolUse Write hook
+10. **If Module A:** Write a malformed note to `notes/` → `validate-note.py` outputs violation with "Fix before moving on."
+11. **If Module A:** Write a note with a type not in validate-config.yaml → check 7 fires; unregistered slug → dedup check fires; bare MOC link → bare-link warning fires
+12. Run `/guide` → renders CLAUDE.md's Commands table; `/compass` → reads compass and returns oriented report
+13. **If Module A + C:** Run `/brief [question]` → reads compass, navigates graph, returns memo

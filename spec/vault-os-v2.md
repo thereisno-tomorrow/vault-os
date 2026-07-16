@@ -1,5 +1,14 @@
 # Vault OS v2
 
+> **⚠ SUPERSEDED by Vault OS v4 (`spec/vault-os-v4.md`), 2026-07-16.**
+> This document is retained for history and for the internals of Modules A–C (knowledge graph),
+> which v4 keeps unchanged for the vaults that use them. The v4 baseline replaces this v2 baseline:
+> continuity is computed not curated (slim compass, no Vault Health tables, no Session Handoff
+> narrative), capture is a versioned hook, sharing is by an `exports:`/`intake:` contract, and
+> enforcement is native `permissions.ask` — not `protect.py`. `knowledge.md`, `guide.md`,
+> `protect.py`, and `protected-files.txt` are removed from the baseline. Do NOT scaffold new vaults
+> against this document; use `spec/vault-os-v4.md`.
+
 *Canonical system specification for vault construction, feature composition, and cross-vault interoperability.*
 *All future vault construction is built against this document.*
 
