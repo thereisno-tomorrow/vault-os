@@ -1,6 +1,57 @@
 #!/bin/bash
 # session-orient.sh — Vault OS v2 compliant
+# vault-os-hook-version: 4.0.0
 # Fires at SessionStart (blank matcher: startup, resume, compact)
+
+# --- Selftest mode: verify this hook's own dependencies, loudly ---
+if [ "${1:-}" = "--selftest" ]; then
+  SELFTEST_FAIL=0
+
+  if EPOCH=$(date -d "2026-01-01" +%s 2>/dev/null) && [ -n "$EPOCH" ]; then
+    echo "PASS: date -d parses ISO dates (2026-01-01 -> ${EPOCH})"
+  else
+    echo "FAIL: date -d \"2026-01-01\" +%s did not parse — GNU date required for manifest drift check"
+    SELFTEST_FAIL=1
+  fi
+
+  if printf 'WARNING: sample\n' | grep -qE '^(WARNING|ERROR)'; then
+    echo "PASS: grep -E works on a sample string"
+  else
+    echo "FAIL: grep -E did not match expected sample — extended regex unavailable"
+    SELFTEST_FAIL=1
+  fi
+
+  SELFTEST_VAULT="${CLAUDE_PROJECT_DIR:-$PWD}"
+  if [ -d "$SELFTEST_VAULT" ]; then
+    echo "PASS: CLAUDE_PROJECT_DIR (or PWD fallback) resolves to a directory ($SELFTEST_VAULT)"
+  else
+    echo "FAIL: CLAUDE_PROJECT_DIR/fallback '$SELFTEST_VAULT' is not a directory"
+    SELFTEST_FAIL=1
+  fi
+
+  SELFTEST_HOME="${HOME:-$USERPROFILE}"
+  if [ -n "$SELFTEST_HOME" ] && [ -d "$SELFTEST_HOME" ] && [ -w "$SELFTEST_HOME" ]; then
+    echo "PASS: HOME resolves to a writable directory ($SELFTEST_HOME) — vault-runtime write target reachable"
+  else
+    echo "FAIL: HOME ('${SELFTEST_HOME:-unset}') is unset, missing, or not writable — cannot create \$HOME/.claude/vault-runtime"
+    SELFTEST_FAIL=1
+  fi
+
+  if [ -d "$SELFTEST_VAULT/ops" ] || [ -d "$SELFTEST_VAULT" ]; then
+    echo "PASS: $SELFTEST_VAULT is reachable as parent for ops/ read targets (compass/decisions/knowledge/manifest/sessions)"
+  else
+    echo "FAIL: $SELFTEST_VAULT not reachable — ops/*.md read targets would silently no-op"
+    SELFTEST_FAIL=1
+  fi
+
+  if [ "$SELFTEST_FAIL" -eq 0 ]; then
+    echo "SELFTEST: all checks passed"
+    exit 0
+  else
+    echo "SELFTEST: one or more checks failed"
+    exit 1
+  fi
+fi
 
 VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be invoked by Claude Code}"
 [[ -f "$VAULT/CLAUDE.md" ]] || { echo "ERROR: VAULT root invalid at $VAULT"; exit 1; }
@@ -14,6 +65,7 @@ echo "╔═══════════════════════�
 echo "║       ${VAULT_NAME} ORIENTATION           ║"
 echo "╚══════════════════════════════════════════╝"
 echo "Date: $(date +%Y-%m-%d)"
+echo "hooks v4.0.0"
 echo ""
 
 # --- Operator profile ---
@@ -45,7 +97,8 @@ if [ -f "$VAULT/ops/knowledge.md" ]; then
     echo "$CORE"
     CORE_LINES=$(echo "$CORE" | grep -c .)
     EXT_COUNT=$(awk '/^## Extended/{found=1} found && /^[^#[:space:]]/{count++} END{print count+0}' "$VAULT/ops/knowledge.md")
-    DEC_COUNT=$(grep -c '^[^[:space:]-#]' "$VAULT/ops/decisions.md" 2>/dev/null || echo 0)
+    DEC_COUNT=$(grep -c '^[^[:space:]-#]' "$VAULT/ops/decisions.md" 2>/dev/null)
+    DEC_COUNT=${DEC_COUNT:-0}
     echo "KNOWLEDGE: Core ${CORE_LINES} lines | Extended ${EXT_COUNT} entries | decisions.md ${DEC_COUNT} entries"
     if [ "${EXT_COUNT:-0}" -gt 20 ] || [ "${DEC_COUNT:-0}" -gt 30 ]; then
       echo "/maintain recommended"
@@ -89,8 +142,13 @@ if [ -f "$MANIFEST" ]; then
     echo "WARNING: ops/vault-manifest.md missing last-verified field."
     echo ""
   elif [ "$LAST_WARNED" != "$TODAY" ]; then
-    DAYS_OLD=$(python -c "from datetime import date; print((date.today() - date.fromisoformat('$LAST_VERIFIED')).days)" 2>/dev/null || echo 0)
-    if [ "${DAYS_OLD:-0}" -gt 7 ]; then
+    if LV_EPOCH=$(date -d "$LAST_VERIFIED" +%s 2>/dev/null); then
+      DAYS_OLD=$(( ( $(date +%s) - LV_EPOCH ) / 86400 ))
+    else
+      echo "WARNING: could not parse last-verified date '$LAST_VERIFIED' — staleness check skipped." >&2
+      DAYS_OLD=""
+    fi
+    if [ -n "$DAYS_OLD" ] && [ "${DAYS_OLD:-0}" -gt 7 ]; then
       echo "--- MANIFEST DRIFT CHECK ---"
       echo "WARNING: ops/vault-manifest.md last-verified $LAST_VERIFIED ($DAYS_OLD days ago). Review and stamp last-verified."
       echo "$TODAY" > "$SUPPRESS"
