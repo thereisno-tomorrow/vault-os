@@ -929,9 +929,10 @@ Commands use `bash "$CLAUDE_PROJECT_DIR"/...` for robust path resolution regardl
 
 The `permissions.ask` block is **always written** — it gates protected files with native, pre-write
 prompts (D5). Rule syntax verified against the official Claude Code permissions docs: `Edit(/path)`
-and `Write(/path)` use gitignore-spec patterns; a leading `/path` anchors at the project root (the
-settings source); a Read/Edit rule does NOT cover Write, so each protected file needs BOTH an
-`Edit(...)` and a `Write(...)` rule. No `protect.py`, no `protected-files.txt`.
+uses gitignore-spec patterns; a leading `/path` anchors at the project root (the settings source).
+`Write(/path)` rules are never matched by Claude Code (verified against 2.1.211's startup warning) —
+`Edit(/path)` alone gates file-modification checks, so each protected file needs only the
+`Edit(...)` rule. No `protect.py`, no `protected-files.txt`.
 
 **Baseline (Module A not selected):**
 
@@ -940,9 +941,7 @@ settings source); a Read/Edit rule does NOT cover Write, so each protected file 
   "permissions": {
     "ask": [
       "Edit(/CLAUDE.md)",
-      "Write(/CLAUDE.md)",
-      "Edit(/ops/vault-manifest.md)",
-      "Write(/ops/vault-manifest.md)"
+      "Edit(/ops/vault-manifest.md)"
     ]
   },
   "hooks": {
@@ -969,9 +968,7 @@ settings source); a Read/Edit rule does NOT cover Write, so each protected file 
   "permissions": {
     "ask": [
       "Edit(/CLAUDE.md)",
-      "Write(/CLAUDE.md)",
-      "Edit(/ops/vault-manifest.md)",
-      "Write(/ops/vault-manifest.md)"
+      "Edit(/ops/vault-manifest.md)"
     ]
   },
   "hooks": {
@@ -1188,8 +1185,8 @@ Write verbatim. This section DOCUMENTS the native `permissions.ask` rules in `.c
 `CLAUDE.md` and `ops/vault-manifest.md` are gated by native permission rules in
 `.claude/settings.json` (`permissions.ask`). The harness prompts for approval BEFORE any Edit or
 Write to these paths — enforcement is native and pre-write, not a warn-after hook. To protect
-another file, add both `Edit(/path)` and `Write(/path)` to the `ask` array (a Read/Edit rule does
-not cover Write). There is no protected-files.txt and no protect.py.
+another file, add `Edit(/path)` to the `ask` array (a `Write(/path)` rule is never matched — Edit
+alone gates file-modification checks). There is no protected-files.txt and no protect.py.
 ```
 
 ---
@@ -1846,7 +1843,7 @@ After scaffolding, verify:
 3. `compass.md` exists at vault root with exactly Focus / Questions / Flags + an `*Updated:*` stamp (no Vault State / Key Files / Hot Files)
 4. `ops/vault-manifest.md` frontmatter has `vault-name`, `root-path`, `created`, `last-verified`, `features`, `domains`, and an `exports:` block
 5. `.claude/settings.json` is valid JSON; wires `"SessionStart"` and `"SessionEnd"` (not "SessionStop") with `bash "$CLAUDE_PROJECT_DIR"/…` commands
-6. `.claude/settings.json` has `permissions.ask` rules: `Edit(/CLAUDE.md)`, `Write(/CLAUDE.md)`, `Edit(/ops/vault-manifest.md)`, `Write(/ops/vault-manifest.md)`
+6. `.claude/settings.json` has `permissions.ask` rules: `Edit(/CLAUDE.md)`, `Edit(/ops/vault-manifest.md)`
 7. Editing `CLAUDE.md` triggers a native permission prompt; there is NO `protect.py` and NO `protected-files.txt`; there is NO `ops/knowledge.md` and NO `ops/guide.md`
 8. `ops/decisions.md` exists with header comment
 9. **If Module A:** `ops/validate-config.yaml` exists with `type-vocabulary`; `validate-note.py` present and wired as a PostToolUse Write hook

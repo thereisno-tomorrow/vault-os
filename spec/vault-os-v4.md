@@ -155,7 +155,10 @@ The vault-os repo is the single hook source of truth: exactly two hooks (orient,
 with a `--selftest` mode that exercises its own dependencies (date parsing, grep regex including
 the decisions char class, git availability, `stat`, path resolution) and exits loudly on any
 failure. Each hook carries a `vault-os-hook-version` stamp (currently **4.1.0**). Every check
-fails loudly; nothing silently no-ops.
+fails loudly; nothing silently no-ops. A vault that intentionally carries a sanctioned superset of
+a hook (extra behavior beyond the spec repo's lineage) stamps its version with a `+<vault>` suffix
+(e.g. `4.1.0+meta.1`), so byte-drift checks can distinguish an intentional superset from unnoticed
+drift.
 
 **Verify:** `bash session-orient.sh --selftest` and `bash session-capture.sh --selftest` pass; a
 deliberately broken dependency makes them fail loudly, not silently.
