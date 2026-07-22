@@ -38,6 +38,68 @@ FIVE PRINCIPLES (vault-os-v4)
         └── Derived over declared — if disk/git can answer it, no one has to maintain it
 ```
 
+## What It Actually Prints
+
+Every session opens with this — computed at startup, no human upkeep. Real output from
+`hooks/session-orient.sh` run against [`examples/starter-vault/`](examples/starter-vault):
+
+```
+╔══════════════════════════════════════════════════════════╗
+║  starter-vault ORIENTATION                               ║
+╚══════════════════════════════════════════════════════════╝
+Date: 2026-07-23   hooks v4.1.0
+
+--- OPERATOR PROFILE ---
+  (your ~/.claude/operator.md — cross-project working patterns, elided here)
+
+--- DERIVED (computed live — git + disk) ---
+Branch: master
+Last 5 commits:
+  a01ba4a fix: remove dead Write() permission rules; document +<vault> hook-version suffix
+  4a612eb docs: rewrite README for vault-os v4
+  ce75c58 fix: stage guide.md render-the-table rewrite (missed in prior commit)
+  d86a755 chore: retire /maintain from global commands, guide.md renders CLAUDE.md table
+  b74fcd3 feat: Vault OS v4 template set + computed-orientation hooks (Phase 1, D1–D9)
+Uncommitted changes: 0 file(s)
+Unpushed commits: 0 (ahead of origin/master)
+Recently modified (non-ignored, top 5):
+  ops/vault-manifest.md
+  CLAUDE.md
+  compass.md
+  .claude/settings.json
+  .claude/hooks/session-orient.sh
+
+Last session record (ops/sessions/last-active.md, 134d old):
+  Date: 2026-01-01
+  Source: Initial scaffold
+
+--- DECLARED (compass intent — Focus / Questions / Flags) ---
+╔══════════════════════════════════════════════════════════╗
+║  ⚠ intent last declared 203 days ago — treat as HISTORICAL
+║  The compass below reflects intent as of 2026-01-01, not now.
+║  Trust the DERIVED section above for current state.       ║
+╚══════════════════════════════════════════════════════════╝
+
+# Compass
+*Updated: 2026-01-01*
+## Focus
+Fresh vault. No work started yet — replace this with what the vault is trying to do now.
+...
+
+╔══════════════════════════════════════════════════════════╗
+║  Continuity is computed. /capture only adds narrative.    ║
+╚══════════════════════════════════════════════════════════╝
+```
+
+Two things to notice. Everything under DERIVED is recomputed from git and disk at startup —
+there is no cached copy that can drift. And the compass didn't quietly present a stale Focus
+as current: because its declared stamp is past the 30-day threshold, orientation demoted it
+behind a banner and pointed the agent back at computed state. That is *fail loudly* and
+*derived over declared* doing their jobs in the same frame.
+
+(The two ages measure different things on purpose: the session record is aged by file mtime,
+the compass by the stamp a human last wrote.)
+
 ## How It Works
 
 ### Continuity is computed, not curated
