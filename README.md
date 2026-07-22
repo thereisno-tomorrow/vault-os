@@ -2,15 +2,15 @@
 
 A context engineering system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that makes AI sessions resumable, cross-project context loading deterministic, and oversight automatic.
 
-Built for people who generate more ideas than they finish — and want their AI to handle the executive function they lack.
+Built for people running many projects at once, who want the machine to carry the state instead of carrying it themselves.
 
 **Canonical spec: [`spec/vault-os-v4.md`](spec/vault-os-v4.md).** `spec/vault-os-v2.md` is superseded — kept for history and for the Module A–C internals it still documents, but do not scaffold new vaults against it.
 
 ## The Problem
 
-AI collapsed the cost of execution to nearly nothing. But it shifted the human's job from *doing the work* to *overseeing and directing the work*. For creative types — divergent thinkers, ADHD brains, anyone who starts 12 projects and finishes none — this is the worst possible trade: the bottleneck moved to the exact skill they're weakest at.
+AI collapsed the cost of execution to nearly nothing. But it shifted the human's job from *doing the work* to *overseeing and directing the work*. The bottleneck moved: it is no longer how fast you can build, it is how much context you can hold across projects, sessions, and machines — and how reliably you can hand it back to an agent that starts every session blind.
 
-You can't fix executive function by trying harder. You fix it by building systems that do the executive functioning for you.
+That's not a discipline problem, and no amount of diligent note-keeping fixes it. Hand-maintained status goes stale the moment attention moves elsewhere. The fix is to stop asking anyone to maintain it.
 
 v2 tried to fix this by asking sessions to hand-curate live state (compass tables, handoff narratives). Evidence from a fleet-wide audit showed that fails universally — every hand-curated compass froze within days. v4 rebuilds continuity on a different premise: **state a machine can compute, it must never be asked to remember.**
 
@@ -23,10 +23,10 @@ It serves two players:
 - **The human** gets automatic capture. A hook writes a session record whether or not anyone remembers to run a command.
 
 ```
-EXECUTIVE FUNCTION BOTTLENECK
-  ├── Creative types = high idea generation + low follow-through
-  ├── AI made execution cheap but oversight expensive
-  └── You can't fix it by trying harder → build systems
+THE CONTEXT BOTTLENECK
+  ├── AI made execution cheap; oversight and context expensive
+  ├── Agents start every session blind; humans re-brief them by hand
+  └── Hand-maintained state always goes stale → compute it instead
         │
         ▼
 FIVE PRINCIPLES (vault-os-v4)
