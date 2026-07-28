@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # VAULT MANIFEST — Vault OS v4 context contract (D3: sharing by contract, isolation by default)
 #   exports: — the ONLY surfaces a foreign session/agent may READ. Everything not listed is
-#              invisible cross-vault (notes/ above all). Isolation is default; sharing is opt-in.
+#              out of contract (notes/ above all). Isolation is default; sharing is opt-in.
 #   intake:  — (optional) deposit-only inbound surface; foreign writers drop new files, never edit.
 #   domains: — discovery metadata; foreign intent must match before any load is allowed.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -15,7 +15,11 @@ domains: []
 
 exports:
   compass: compass.md           # default export — the compass at the vault root, nothing more
-  # Anything not listed here is invisible cross-vault.
+  # Anything not listed here is out of contract.
+
+# agent-exports:                # optional — narrow extra paths for one named shared agent
+#   agent-name:
+#     - relative/path.md
 
 # intake:                       # optional deposit-only surface
 #   inbox: inbox/

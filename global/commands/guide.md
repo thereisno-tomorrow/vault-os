@@ -1,3 +1,7 @@
+---
+description: Render the current vault's canonical command reference from CLAUDE.md
+---
+
 Render the current vault's command reference.
 
 Read `CLAUDE.md` in the current vault root. Find its `## Commands` section (a markdown table of

@@ -4,7 +4,7 @@
 #
 # This is the ONLY negotiated surface between this vault and the rest of the fleet.
 #   exports: — the ONLY surfaces a foreign session/agent may READ. Everything NOT listed here
-#              is invisible cross-vault. notes/ above all: it is never exported by default.
+#              is out of contract. notes/ above all: it is never exported by default.
 #              Isolation is the default; sharing is opt-in, one path at a time.
 #   intake:  — (optional) where foreign writers may DEPOSIT. Deposits only: a foreign writer
 #              drops a NEW file into the intake dir and never edits an existing file in place.
@@ -21,7 +21,11 @@ domains: []                     # e.g. [payments-infrastructure, mas-regulation]
 exports:
   compass: compass.md           # default export — the compass, nothing more
 # handoffs: handoffs/           # optional — a dir of fleet-level notices this vault chooses to publish
-  # Anything not listed above is invisible cross-vault. Do NOT export notes/ without a deliberate reason.
+  # Anything not listed above is out of contract. Do NOT export notes/ without a deliberate reason.
+
+# agent-exports:                # optional — narrow extra paths for one named shared agent
+#   agent-name:
+#     - relative/path.md
 
 # intake:                       # optional — deposit-only inbound surface for foreign writers/agents
 #   inbox: inbox/               # foreign writers drop new files here; they never edit in place

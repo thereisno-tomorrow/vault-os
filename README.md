@@ -40,19 +40,21 @@ FIVE PRINCIPLES (vault-os-v4)
 
 ## What It Actually Prints
 
-Every session opens with this — computed at startup, no human upkeep. Real output from
+Every session opens with this — computed at startup, no human upkeep. Representative output from
 `hooks/session-orient.sh` run against [`examples/starter-vault/`](examples/starter-vault):
 
 ```
 ╔══════════════════════════════════════════════════════════╗
 ║  starter-vault ORIENTATION                               ║
 ╚══════════════════════════════════════════════════════════╝
-Date: 2026-07-23   hooks v4.1.0
+Date: 2026-07-28   hook 4.2.0
 
 --- OPERATOR PROFILE ---
   (your ~/.claude/operator.md — cross-project working patterns, elided here)
 
---- DERIVED (computed live — git + disk) ---
+════════════════════════════════════════════════════════════
+DERIVED — live from git + disk
+════════════════════════════════════════════════════════════
 Branch: master
 Last 5 commits:
   a01ba4a fix: remove dead Write() permission rules; document +<vault> hook-version suffix
@@ -60,8 +62,7 @@ Last 5 commits:
   ce75c58 fix: stage guide.md render-the-table rewrite (missed in prior commit)
   d86a755 chore: retire /maintain from global commands, guide.md renders CLAUDE.md table
   b74fcd3 feat: Vault OS v4 template set + computed-orientation hooks (Phase 1, D1–D9)
-Uncommitted changes: 0 file(s)
-Unpushed commits: 0 (ahead of origin/master)
+Recovery posture: local-history=yes; remotes=1; upstream=origin/master; 0 unpushed; tracked-changes=0; untracked=0 files/0 B
 Recently modified (non-ignored, top 5):
   ops/vault-manifest.md
   CLAUDE.md
@@ -113,15 +114,16 @@ Vault Health tables, "current state" narratives, and Session Handoff blocks are 
 
 ### Capture is a hook, not a ritual
 
-**`session-capture.sh`** (SessionEnd hook) writes a minimal machine record to `ops/sessions/last-active.md` on every clean exit — timestamp, branch, files touched (an approximation, since a true session diff isn't available to a hook). It never clobbers a richer same-day `/capture` entry. **`/capture`** layers narrative on top when you use it, but nothing is load-bearing on that happening: if you close a session without it, the next orientation still reconstructs what happened from derived signals plus the hook's record.
+**`session-capture.sh`** (SessionEnd hook) writes a minimal machine record to `ops/sessions/last-active.md` on every clean exit — timestamp, branch, files touched (an approximation, since a true session diff isn't available to a hook). Before replacement, a narrative `/capture` record is archived byte-for-byte to a Windows-safe timestamped filename. **`/capture`** layers narrative on top when you use it, but nothing is load-bearing on that happening: if you close a session without it, the next orientation still reconstructs what happened from derived signals plus the hook's record.
 
 ### Sharing by contract, isolation by default
 
 Each vault's `ops/vault-manifest.md` carries a context contract in its YAML frontmatter:
 
 ```yaml
-exports:                    # the ONLY surfaces foreign sessions/agents may READ
-  compass: compass.md       # default — everything not listed is invisible cross-vault, notes/ above all
+exports:                    # the ONLY surfaces foreign sessions may READ
+  compass: compass.md       # default — everything not listed is out of contract, notes/ above all
+# agent-exports:            # optional narrow grants to one named shared agent
 # intake:                   # optional — where foreign writers may DEPOSIT (never edit in place)
 #   inbox: inbox/
 domains: [ ... ]            # discovery metadata, matched against a foreign session's stated intent
@@ -138,7 +140,7 @@ Protected files (`CLAUDE.md`, `ops/vault-manifest.md`) are gated by native `perm
 
 ### One hook lineage, tested, versioned
 
-Exactly two hooks — `session-orient.sh` and `session-capture.sh` — live in this repo as the single source of truth for every vault. Each ships a `--selftest` mode that exercises its own dependencies (date parsing, grep regex, git availability, path resolution) and fails loudly on any broken dependency. Each carries a `vault-os-hook-version` stamp.
+Exactly two hooks — `session-orient.sh` and `session-capture.sh` — live in this repo as the single source of truth for every vault. Each ships a `--selftest` mode that exercises its own dependencies (date parsing, grep regex, git availability, batched file metadata reads where used, path resolution) and fails loudly on any broken dependency. Each carries a `vault-os-hook-version` stamp.
 
 ### Portable root
 
@@ -160,6 +162,9 @@ vault-os/
 │   └── hooks-reference.md             # Claude Code hooks deep reference
 ├── global/                            # Copy to ~/.claude/
 │   ├── CLAUDE.md                      # Universal rules for all vaults
+│   ├── agents/                        # Durable source for shared agent definitions
+│   │   ├── job-match-scorer.md
+│   │   └── ...                        # six definitions; repo → installed
 │   └── commands/                      # Slash commands available everywhere
 │       ├── capture.md
 │       ├── compass.md
@@ -194,6 +199,10 @@ vault-os/
    # Copy slash commands
    cp global/commands/*.md ~/.claude/commands/
 
+   # Copy shared agents (the repository is authoritative)
+   mkdir -p ~/.claude/agents
+   cp global/agents/*.md ~/.claude/agents/
+
    # Copy the scaffolding skill
    mkdir -p ~/.claude/skills/new-vault
    cp skills/new-vault/SKILL.md ~/.claude/skills/new-vault/SKILL.md
@@ -204,6 +213,13 @@ vault-os/
    /new-vault
    ```
    The skill asks a few questions, then writes all files in the correct structure.
+
+3. **Verify the installed source tree:**
+   ```bash
+   bash tests/test-hooks.sh
+   ```
+   This checks canonical/starter/embedded hook equality, both hook selftests,
+   the 15 KB decision window, and named conformance failures.
 
 ### Option B: Copy the starter vault manually
 

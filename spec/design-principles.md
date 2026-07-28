@@ -1,5 +1,7 @@
 # System Design Guiding Principles
 
+> Superseded by `spec/vault-os-v4.md` §3/§4 for live-state and orientation behavior.
+
 *Living document. Updated as insights emerge during the redesign process.*
 
 > **Proposal:** This file should be referenced in the global `~/.claude/CLAUDE.md` cascade so that every session in every vault inherits these principles automatically. Adherence should be enforced — not aspirational. The exact mechanism (direct include, summary section, or hook-injected) to be decided during Phase 2 design.

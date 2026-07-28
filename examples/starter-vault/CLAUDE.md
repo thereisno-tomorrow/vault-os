@@ -38,9 +38,9 @@ prints live DERIVED state every session and the compass carries DECLARED intent.
 ## Protected Files
 
 `CLAUDE.md` and `ops/vault-manifest.md` are gated by native permission rules in
-`.claude/settings.json` (`permissions.ask`) — the harness prompts BEFORE any Edit or Write.
-To protect another file, add both `Edit(/path)` and `Write(/path)` to the `ask` array. There is
-no `protected-files.txt` and no `protect.py`.
+`.claude/settings.json` (`permissions.ask`) — the harness prompts BEFORE an Edit.
+To protect another file, add `Edit(/path)` to the `ask` array. `Write(/path)` is not a live
+file-modification rule on the verified worker epoch. There is no `protected-files.txt` and no `protect.py`.
 
 ---
 
@@ -49,7 +49,7 @@ no `protected-files.txt` and no `protect.py`.
 **Don't paste live state into CLAUDE.md or the compass.** State is computed by orientation; a stored copy only goes stale.
 **Don't read all context files upfront.** Load on demand, by session intent.
 **Don't reason from scratch.** Pull from `ops/decisions.md`, the compass, and git history first.
-**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is invisible cross-vault.
+**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is out of contract; the harness does not technically block the read.
 
 ---
 

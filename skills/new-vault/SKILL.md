@@ -5,14 +5,14 @@ description: Scaffold a new vault conforming to vault-os-v4. Invoked when user s
 
 # new-vault
 
-Scaffold a complete vault conforming to **vault-os-v4** (`spec/vault-os-v4.md`). When invoked, execute phases 0–4 below. All file content is defined inline — no external files consulted at runtime. Everything needed is here.
+Scaffold a complete vault conforming to **vault-os-v4** (`spec/vault-os-v4.md`). When invoked, execute phases 0–5 below. All file content is defined inline — no external files consulted at runtime. Everything needed is here.
 
 **v4 baseline (what changed from v2 — do not scaffold the v2 artifacts):**
 - **Slim compass** — three sections only (Focus / Questions / Flags) + an `*Updated:*` stamp. No Vault State, Key Files, or Hot Files tables. Continuity is computed by the orient hook, not curated here.
 - **Context-contract manifest** — `exports:` / `intake:` / `domains:`, not `export-surfaces:`.
 - **Native permissions** — protected files gated by `permissions.ask` in `.claude/settings.json`. No `protect.py`, no `protected-files.txt`.
 - **No `knowledge.md`** and **no `guide.md`** — both retired (D9). `/guide` renders CLAUDE.md's Commands table.
-- **Two v4 hooks** (`session-orient.sh`, `session-capture.sh`, version 4.1.0, `--selftest`-able).
+- **Two v4 hooks** (`session-orient.sh` version 4.2.0, `session-capture.sh` version 4.2.0, both `--selftest`-able).
 - `validate-note.py` + `ops/validate-config.yaml` remain **Module A only**.
 
 ---
@@ -24,7 +24,7 @@ The vault manifest (`ops/vault-manifest.md`) is always created — it is a basel
 | ID | Name | Key additions | Requires |
 |---|---|---|---|
 | A | Knowledge Graph | `notes/` (flat), MOCs, `dedup-index.md`, `validate-note.py`, `ops/validate-config.yaml`, `/reduce` `/reflect` `/connect` `/think` | — |
-| B | Inbox Pipeline | `inbox/`, `archive/transcripts/`, `processing-backlog.md`, full `/reduce` pipeline | A |
+| B | Inbox Pipeline | `inbox/`, `archive/transcripts/`, `processing-backlog.md`, `reduce-skiplist.md`, full `/reduce` pipeline | A |
 | C | Synthesis Commands | `/brief`, `/challenge` (+ `/think` shared with A) | A |
 | D | Project State | Tech Stack, Architecture, Code Patterns in CLAUDE.md. (Protected files are native `permissions.ask` — baseline, not a module. No Session Handoff narrative, no `protect.py`.) | — |
 | E | Context Loading Table | Context Loading Table in CLAUDE.md | — |
@@ -106,6 +106,7 @@ Creates: [N files across X directories]
 Commands: [comma-separated list]
 Hooks: session-orient.sh, session-capture.sh[, validate-note.py (Module A)]
 Protected files (native permissions.ask): CLAUDE.md, ops/vault-manifest.md
+Registry: will register in the meta-vault registry (pending-unpushed until pushed) — standard final step
 ```
 
 ---
@@ -162,6 +163,8 @@ Module G: `sources/`
 
 **Step 15 (Module B): Write `ops/processing-backlog.md`** — see T-BACKLOG.
 
+**Step 15b (Module B): Write `ops/reduce-skiplist.md`** — see T-SKIPLIST.
+
 **Step 16: Write `.claude/commands/` files** — write one file per active command:
 - Always: `compass.md` (T-CMD-COMPASS) — local override because new vaults place compass at root, not ops/
 - Note: `capture.md`, `decide.md`, `guide.md` are global commands in `~/.claude/commands/` — do NOT scaffold them locally. `/guide` renders CLAUDE.md's Commands table; there is no `ops/guide.md`.
@@ -173,13 +176,59 @@ Module G: `sources/`
 
 ---
 
-### Phase 4 — Report
+### Phase 4 — Register in the meta-vault registry
+
+**This is a standard, non-optional final step of standing up a vault** — not an optional foreign-vault write. A scaffolded vault that isn't registered is invisible to cross-vault discovery, and every prior `/new-vault` vault was registered in the same session. Do NOT ask the user whether to register or offer to defer it — just do it. (The global rule *"Claude does not edit cross-vault-dependencies — human decides"* governs a vault declaring its **own** load-dependencies; it does NOT govern entering a newly-created vault into the central registry. Different operation — do not conflate the two.)
+
+Resolve the registry root: `{SYSTEM_REGISTRY}` = `${VAULT_REGISTRY:-$HOME/Projects/meta-vault}` (resolve `$HOME` for this machine — Windows: `C:/Users/<user>`). All steps operate on `{SYSTEM_REGISTRY}/ops/vault-manifest.md`.
+
+**R1 — Read the registry.** Read `{SYSTEM_REGISTRY}/ops/vault-manifest.md`. If it is missing, or has no `registry: true` and no `cross-vault-dependencies:` block, STOP: tell the user the registry wasn't found at the expected path and that registration must be done by hand. Never fabricate a registry.
+
+**R2 — Read the registry's compass first** (its declared `exports.compass`, e.g. `ops/compass.md`) — foreign-compass-before-write. If a Flag there blocks registry edits (e.g. a freeze or migration in progress), STOP and surface it.
+
+**R3 — Compute the slug.** `slug = SHA1(root-path)[:8]`, root-path EXACTLY as the manifest writes paths (forward slashes, no trailing slash, case as shown). Command: `printf '%s' 'C:/Users/<user>/Projects/<vault>' | sha1sum | cut -c1-8`. VERIFY the recipe by reproducing one existing entry's slug first; if it doesn't reproduce, STOP — the recipe or the path form is off, do not guess.
+
+**R4 — Pick the bucket.** A freshly scaffolded vault is almost always `pending-unpushed:` — it has no GitHub remote yet (or no git repo at all), so its compass isn't on a GitHub default branch. Use the `cross-vault-dependencies:` ("registered") spine ONLY if the vault's compass is already verified present on a GitHub default branch. When unsure → `pending-unpushed`.
+
+**R5 — Detect git state** for an accurate `action:` note: `git -C <vault> rev-parse --is-inside-work-tree` (repo?), `git -C <vault> log -1 --oneline` (any commit?), `git -C <vault> remote -v` (remote?). Describe what is actually true — do not assert "pushed" without a remote.
+
+**R6 — Append the entry** under the chosen bucket, matching the shape of the surrounding entries — see T-REGISTRY-ENTRY below. Reuse the vault's own `domains` (write the `[none yet — …]` placeholder if domains were deferred in Phase 0). Include `intake:` only if Module B; `loads-from` = `[compass.md]` plus `notes/index.md` if Module A.
+
+**R7 — Do NOT touch** the registry's top-level `last-verified` or its rebuild-header counts. Those are snapshots of full-registry verifications, not per-add running totals — adding one vault does not re-verify the fleet. (Observed convention: prior single-vault adds left both untouched.)
+
+**R8 — Commit, scoped.** Stage ONLY `ops/vault-manifest.md` (`git -C {SYSTEM_REGISTRY} add ops/vault-manifest.md`) so you don't sweep up unrelated working changes (e.g. an auto-generated `ops/sessions/last-active.md`). Commit message: `registry: add <name> vault (pending-unpushed, slug <slug>)`. Do not push.
+
+**T-REGISTRY-ENTRY** — append under the chosen bucket (`pending-unpushed:` for a fresh vault):
+
+```
+  - vault: {{VAULT_PATH}}
+    vault-name: {{VAULT_NAME}}
+    slug: {{SLUG}}
+    features: [{{FEATURES_LIST}}]
+    created: {{SCAFFOLD_DATE}}
+    last-verified: {{SCAFFOLD_DATE}}
+    domains:
+      - [none yet — structure deferred; emerges from first sources]   # or the vault's real domains
+    compass: compass.md
+    intake: inbox/        # Module B only — deposit-only surface; omit this line otherwise
+    last-updated: {{SCAFFOLD_DATE}}
+    entry-verified: {{SCAFFOLD_DATE}}
+    loads-from: [compass.md, notes/index.md]   # drop notes/index.md if no Module A
+    action: "NEW entry ({{SCAFFOLD_DATE}}), scaffolded via /new-vault (modules {{FEATURES_LIST}}). <one line on what the vault is>. <git/remote state — e.g. 'git init + first commit on main; no GitHub remote yet — needs remote + push before it enters the derived spine. Visible only via ops/sync-local.sh until then.'> <if domains deferred: 'domains: cannot yet match foreign intent.'>"
+```
+
+If the registry is unreachable (R1 stop) or a Flag blocks the edit (R2 stop): finish Phase 5 normally but state plainly in the report that the vault is **NOT registered**, give the reason, and print the exact entry to paste so the user can register by hand.
+
+---
+
+### Phase 5 — Report
 
 ```
 Created: N files in X directories
 
 [directory tree of what was created]
 
+Registered: meta-vault registry — [bucket], slug [slug]   (or: NOT registered — [reason] + paste-ready entry)
 Start here: compass.md
 First action: [what to do now — e.g., "Add your first source file to inbox/ then run /reduce" or "Set the compass Focus to what this vault is trying to do" or "Add domains to notes/index.md"]
 ```
@@ -192,78 +241,346 @@ First action: [what to do now — e.g., "Add your first source file to inbox/ th
 
 ### T-ORIENT: `.claude/hooks/session-orient.sh`
 
-Write this file verbatim (vault-os v4.1.0). It is baseline for every vault — no module conditionals. The DERIVED section computes state from git + disk every session; the DECLARED section prints the compass. Do not add per-module blocks; keep one hook lineage (D6).
+Write this file verbatim (vault-os v4.2.0). It is baseline for every vault — no module conditionals. The hook computes state from git + disk, keeps complete decision records inside a 15 KB total payload, and exposes `--conformance` for fleet checks. Do not add per-module blocks; keep one hook lineage (D6).
 
 ```bash
 #!/bin/bash
-# session-orient.sh — Vault OS v4 (D1: continuity is computed, not curated)
-# vault-os-hook-version: 4.1.0
-# Fires at SessionStart (blank matcher: startup, resume, clear, compact)
-#
-# Two sections, by trust tier:
-#   DERIVED  — computed live from git + disk every session. No stored copy exists to go stale.
-#   DECLARED — from compass.md (Focus/Questions/Flags): things git cannot tell you. Shown behind
-#              a staleness banner if the compass Updated stamp is >30 days old.
-# Plus a PRE-V4 check that offers migration when a vault predates the v4 context contract.
-# Everything fails loudly (D6): a check that cannot run says so; it never defaults to "fine".
+# session-orient.sh — Vault OS v4.2
+# vault-os-hook-version: 4.2.0
+# Fires at SessionStart. Output is bounded; compact may re-inject it safely.
 
+set -u
+
+HOOK_BASE_VERSION="4.2.0"
+ORIENTATION_BUDGET_BYTES="${VAULT_OS_ORIENTATION_BUDGET_BYTES:-15000}"
+NON_DECISION_BUDGET_BYTES="${VAULT_OS_NON_DECISION_BUDGET_BYTES:-12000}"
+OPERATOR_BUDGET_BYTES="${VAULT_OS_OPERATOR_BUDGET_BYTES:-500}"
+DECISION_LIMIT="${VAULT_OS_DECISION_LIMIT:-3}"
 STALE_DAYS=30
 
-# ── Selftest: verify this hook's own dependencies, loudly ─────────────────────
-if [ "${1:-}" = "--selftest" ]; then
-  SELFTEST_FAIL=0
+byte_count() {
+  wc -c < "$1" | tr -d '[:space:]'
+}
 
-  if EPOCH=$(date -d "2026-01-01" +%s 2>/dev/null) && [ -n "$EPOCH" ]; then
-    echo "PASS: date -d parses ISO dates (2026-01-01 -> ${EPOCH})"
+hook_version() {
+  grep -m1 'vault-os-hook-version:' "$1" 2>/dev/null | sed -E 's/.*vault-os-hook-version:[[:space:]]*//'
+}
+
+find_compass() {
+  local vault="$1" candidate
+  for candidate in ops/compass.md compass.md notes/compass.md; do
+    if [ -f "$vault/$candidate" ]; then
+      printf '%s\n' "$vault/$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+frontmatter_status() {
+  awk '
+    NR == 1 && $0 != "---" { exit 3 }
+    NR == 1 { in_fm=1; next }
+    in_fm && $0 == "---" { exit found ? 0 : 4 }
+    in_fm && $0 ~ /^status:[[:space:]]*/ {
+      sub(/^status:[[:space:]]*/, "")
+      gsub(/[[:space:]\r]+$/, "")
+      print tolower($0)
+      found=1
+    }
+    END {
+      if (NR == 0) exit 3
+    }
+  ' "$1"
+}
+
+manifest_intakes() {
+  awk '
+    function clean(value) {
+      sub(/[[:space:]]*#.*/, "", value)
+      gsub(/^[[:space:]]+|[[:space:]\r]+$/, "", value)
+      return value
+    }
+    /^intake:[[:space:]]*/ {
+      value=$0
+      sub(/^intake:[[:space:]]*/, "", value)
+      value=clean(value)
+      if (value != "") print value
+      in_intake=1
+      next
+    }
+    in_intake && /^[^[:space:]#-]/ { in_intake=0 }
+    in_intake && /^  [A-Za-z0-9_-]+:[[:space:]]*/ {
+      value=$0
+      sub(/^  [A-Za-z0-9_-]+:[[:space:]]*/, "", value)
+      value=clean(value)
+      if (value != "") print value
+    }
+  ' "$1" 2>/dev/null | sort -u
+}
+
+build_decision_records() {
+  local file="$1" format="$2" record_dir="$3" index="$4"
+  mkdir -p "$record_dir"
+  : > "$index"
+  awk -v format="$format" -v out="$record_dir" -v index_file="$index" '
+    function flush_record(  path) {
+      if (record == "") return
+      path=sprintf("%s/%06d.md", out, count)
+      print record > path
+      close(path)
+      printf "%s\t%06d\t%s\n", record_date, count, path >> index_file
+      record=""
+    }
+    function is_start(line) {
+      if (format == "heading") return line ~ /^## [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+      return line ~ /^- \[[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\]/
+    }
+    function extract_date(line) {
+      if (format == "heading") return substr(line, 4, 10)
+      return substr(line, 4, 10)
+    }
+    {
+      sub(/\r$/, "")
+      if (is_start($0)) {
+        flush_record()
+        count++
+        record_date=extract_date($0)
+        record=$0
+      } else if (count > 0) {
+        record=record ORS $0
+      }
+    }
+    END { flush_record() }
+  ' "$file"
+}
+
+render_decisions() {
+  local file="$1" available="$2" work="$3" out="$4"
+  local heading_count bullet_count total_count format index sorted selected injected
+  local date order path record_bytes current first_line
+
+  : > "$out"
+  heading_count=$(grep -cE '^## [0-9]{4}-[0-9]{2}-[0-9]{2}' "$file" 2>/dev/null || true)
+  bullet_count=$(grep -cE '^- \[[0-9]{4}-[0-9]{2}-[0-9]{2}\]' "$file" 2>/dev/null || true)
+  total_count=$((heading_count + bullet_count))
+
+  {
+    echo "--- DECISIONS (bounded) ---"
+    if [ ! -s "$file" ]; then
+      echo "decisions.md: 0 entries, 0 source bytes"
+      echo "full log: ops/decisions.md — grep it"
+      return
+    fi
+    if [ "$heading_count" -gt 0 ] && [ "$bullet_count" -gt 0 ]; then
+      echo "⚠ decisions.md mixes heading and bullet schemas — body omitted; normalize the file."
+      echo "decisions.md: ${total_count} detected entries, $(byte_count "$file") source bytes"
+      echo "full log: ops/decisions.md — grep it"
+      return
+    elif [ "$heading_count" -gt 0 ]; then
+      format="heading"
+    elif [ "$bullet_count" -gt 0 ]; then
+      format="bullet"
+    else
+      echo "⚠ decisions.md is non-empty but matches no supported date-keyed schema — body omitted."
+      echo "decisions.md: 0 detected entries, $(byte_count "$file") source bytes"
+      echo "full log: ops/decisions.md — grep it"
+      return
+    fi
+  } >> "$out"
+
+  index="$work/decision-index.tsv"
+  sorted="$work/decision-index-sorted.tsv"
+  build_decision_records "$file" "$format" "$work/decision-records" "$index"
+  sort -t $'\t' -k1,1r -k2,2n "$index" > "$sorted"
+
+  selected=0
+  injected=0
+  while IFS=$'\t' read -r date order path; do
+    [ "$selected" -lt "$DECISION_LIMIT" ] || break
+    record_bytes=$(byte_count "$path")
+    current=$(byte_count "$out")
+    if [ $((current + record_bytes + 240)) -gt "$available" ]; then
+      first_line=$(sed -n '1p' "$path" | cut -c1-160)
+      {
+        echo "⚠ newest remaining decision does not fit the orientation budget; body omitted."
+        echo "  ${date} · ${record_bytes} B · ${first_line}"
+      } >> "$out"
+      break
+    fi
+    echo "" >> "$out"
+    cat "$path" >> "$out"
+    echo "" >> "$out"
+    selected=$((selected + 1))
+    injected=$((injected + record_bytes))
+  done < "$sorted"
+
+  {
+    echo "decisions.md: ${total_count} total entries; ${selected} injected; ${injected} record bytes"
+    echo "full log: ops/decisions.md — grep it"
+  } >> "$out"
+}
+
+run_selftest() {
+  local fail=0 temp
+  if date -d "2026-01-01" +%s >/dev/null 2>&1; then
+    echo "PASS: GNU date parses ISO dates — compass staleness available"
   else
-    echo "FAIL: date -d \"2026-01-01\" +%s did not parse — GNU date required for compass staleness banner"
-    SELFTEST_FAIL=1
+    echo "FAIL: GNU date unavailable — compass staleness unavailable"
+    fail=1
   fi
-
-  if printf 'WARNING: sample\n' | grep -qE '^(WARNING|ERROR)'; then
-    echo "PASS: grep -E works on a sample string"
+  for dependency in grep git stat xargs awk sort wc mktemp sed find head cut cat tr rm rmdir; do
+    if command -v "$dependency" >/dev/null 2>&1; then
+      echo "PASS: ${dependency} available"
+    else
+      echo "FAIL: ${dependency} unavailable"
+      fail=1
+    fi
+  done
+  if stat -c %Y "$0" >/dev/null 2>&1; then
+    echo "PASS: stat reads this hook — recent-file ranking available"
   else
-    echo "FAIL: grep -E did not match expected sample — extended regex unavailable"
-    SELFTEST_FAIL=1
+    echo "FAIL: stat cannot read this hook"
+    fail=1
   fi
-
-  # The corrected DEC_COUNT char class must not raise "Invalid range end" on this grep.
-  if printf 'x\n' | grep -c '^[^[:space:]#-]' >/dev/null 2>&1; then
-    echo "PASS: decisions-count char class '^[^[:space:]#-]' compiles (no Invalid range end)"
+  if printf 'x\0' | xargs -0 -r printf '%s' | grep -q '^x$'; then
+    echo "PASS: xargs preserves NUL-delimited paths"
   else
-    echo "FAIL: decisions-count char class raised an error — grep regex engine incompatible"
-    SELFTEST_FAIL=1
+    echo "FAIL: xargs NUL handling broken"
+    fail=1
   fi
-
-  if command -v git >/dev/null 2>&1; then
-    echo "PASS: git is on PATH ($(git --version 2>/dev/null)) — DERIVED git signals available"
+  temp=$(mktemp -d 2>/dev/null || true)
+  if [ -n "$temp" ] && [ -d "$temp" ]; then
+    printf '## 2026-01-01 — Older\nold body\n## 2026-01-02 — Newer\nnew body\n' > "$temp/headings.md"
+    build_decision_records "$temp/headings.md" heading "$temp/heading-records" "$temp/heading-index.tsv"
+    printf '%s\n' \
+      '- [2026-01-01] Decision: Older' \
+      '  Decision-ID: 20260101-older' \
+      '  State: encoded' \
+      '- [2026-01-02] Decision: Newer' \
+      '  Decision-ID: 20260102-newer' \
+      '  State: unencoded' > "$temp/bullets.md"
+    build_decision_records "$temp/bullets.md" bullet "$temp/bullet-records" "$temp/bullet-index.tsv"
+    if [ "$(wc -l < "$temp/heading-index.tsv")" -eq 2 ] \
+      && [ "$(wc -l < "$temp/bullet-index.tsv")" -eq 2 ] \
+      && grep -q 'new body' "$temp/heading-records/000002.md" \
+      && grep -q 'Decision-ID: 20260102-newer' "$temp/bullet-records/000002.md"; then
+      echo "PASS: heading and multiline-bullet decisions parse as complete records"
+    else
+      echo "FAIL: decision record parser lost or split a record"
+      fail=1
+    fi
+    rm -rf "$temp"
+    echo "PASS: temporary workspace available"
   else
-    echo "FAIL: git not on PATH — DERIVED section cannot compute branch/commits/push status"
-    SELFTEST_FAIL=1
+    echo "FAIL: temporary workspace unavailable"
+    fail=1
   fi
-
-  if ST=$(stat -c %Y "$0" 2>/dev/null) && [ -n "$ST" ]; then
-    echo "PASS: stat -c %Y works (mtime ${ST}) — recently-modified-files ranking available"
-  else
-    echo "FAIL: stat -c %Y did not work — cannot rank recently modified files"
-    SELFTEST_FAIL=1
-  fi
-
-  SELFTEST_VAULT="${CLAUDE_PROJECT_DIR:-$PWD}"
-  if [ -d "$SELFTEST_VAULT" ]; then
-    echo "PASS: CLAUDE_PROJECT_DIR (or PWD fallback) resolves to a directory ($SELFTEST_VAULT)"
-  else
-    echo "FAIL: CLAUDE_PROJECT_DIR/fallback '$SELFTEST_VAULT' is not a directory"
-    SELFTEST_FAIL=1
-  fi
-
-  if [ "$SELFTEST_FAIL" -eq 0 ]; then
+  if [ "$fail" -eq 0 ]; then
     echo "SELFTEST: all checks passed"
-    exit 0
-  else
-    echo "SELFTEST: one or more checks failed"
-    exit 1
+    return 0
   fi
+  echo "SELFTEST: one or more checks failed"
+  return 1
+}
+
+run_conformance() {
+  local vault="${CLAUDE_PROJECT_DIR:-$PWD}" fail=0 internal=0 compass manifest settings
+  local orient capture version retired
+
+  if ! command -v grep >/dev/null 2>&1 || ! command -v find >/dev/null 2>&1; then
+    echo "ERROR: conformance checker dependencies unavailable"
+    return 2
+  fi
+
+  manifest="$vault/ops/vault-manifest.md"
+  settings="$vault/.claude/settings.json"
+  orient="$vault/.claude/hooks/session-orient.sh"
+  capture="$vault/.claude/hooks/session-capture.sh"
+
+  if [ -f "$vault/CLAUDE.md" ]; then
+    echo "PASS: CLAUDE.md present"
+  else
+    echo "FAIL: CLAUDE.md missing — vault contract unavailable"
+    fail=1
+  fi
+
+  compass=$(find_compass "$vault" 2>/dev/null || true)
+  if [ -n "$compass" ] && grep -qE '^\*Updated: [0-9]{4}-[0-9]{2}-[0-9]{2}\*' "$compass"; then
+    echo "PASS: compass has Updated stamp"
+  else
+    echo "FAIL: compass missing or has no Updated stamp — staleness unjudgeable"
+    fail=1
+  fi
+
+  if [ -f "$manifest" ] && grep -q '^exports:' "$manifest"; then
+    echo "PASS: manifest has v4 exports contract"
+  else
+    echo "FAIL: manifest missing v4 exports contract"
+    fail=1
+  fi
+
+  if [ -f "$settings" ] &&
+     grep -Fq 'Edit(/CLAUDE.md)' "$settings" &&
+     grep -Fq 'Edit(/ops/vault-manifest.md)' "$settings"; then
+    echo "PASS: both protected files use Edit ask rules"
+  else
+    echo "FAIL: settings missing one or both Edit ask rules"
+    fail=1
+  fi
+
+  version=$(hook_version "$orient")
+  if [[ "$version" == "$HOOK_BASE_VERSION" || "$version" == "$HOOK_BASE_VERSION"+* ]]; then
+    echo "PASS: orient hook version ${version}"
+  else
+    echo "FAIL: orient hook version '${version:-missing}' does not derive from ${HOOK_BASE_VERSION}"
+    fail=1
+  fi
+  version=$(hook_version "$capture")
+  if [[ "$version" == "$HOOK_BASE_VERSION" || "$version" == "$HOOK_BASE_VERSION"+* ]]; then
+    echo "PASS: capture hook version ${version}"
+  else
+    echo "FAIL: capture hook version '${version:-missing}' does not derive from ${HOOK_BASE_VERSION}"
+    fail=1
+  fi
+
+  if [ -f "$settings" ] &&
+     grep -Fq '"SessionStart"' "$settings" &&
+     grep -Fq 'session-orient.sh' "$settings" &&
+     grep -Fq '"SessionEnd"' "$settings" &&
+     grep -Fq 'session-capture.sh' "$settings" &&
+     [ "$(grep -Fc '$CLAUDE_PROJECT_DIR' "$settings")" -ge 2 ]; then
+    echo "PASS: SessionStart/SessionEnd use CLAUDE_PROJECT_DIR"
+  else
+    echo "FAIL: hook wiring missing or not rooted in CLAUDE_PROJECT_DIR"
+    fail=1
+  fi
+
+  retired=""
+  for path in "$vault/knowledge.md" "$vault/guide.md" "$vault/.claude/protected-files.txt" "$vault/ops/protected-files.txt"; do
+    [ -e "$path" ] && retired="${retired}${retired:+, }${path#$vault/}"
+  done
+  if [ -z "$retired" ]; then
+    echo "PASS: no retired root control artifacts"
+  else
+    echo "FAIL: retired control artifacts present: ${retired}"
+    fail=1
+  fi
+
+  if [ "$internal" -ne 0 ]; then
+    return 2
+  elif [ "$fail" -ne 0 ]; then
+    return 1
+  fi
+  return 0
+}
+
+if [ "${1:-}" = "--selftest" ]; then
+  run_selftest
+  exit $?
+elif [ "${1:-}" = "--conformance" ]; then
+  run_conformance
+  exit $?
 fi
 
 VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be invoked by Claude Code}"
@@ -271,252 +588,403 @@ VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be 
 
 VAULT_NAME=$(basename "$VAULT")
 MANIFEST="$VAULT/ops/vault-manifest.md"
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
 
-echo "╔══════════════════════════════════════════════════════════╗"
-printf "║  %-56s║\n" "${VAULT_NAME} ORIENTATION"
-echo "╚══════════════════════════════════════════════════════════╝"
-echo "Date: $(date +%Y-%m-%d)   hooks v4.1.0"
-echo ""
+HEADER="$WORK/header"
+OPERATOR="$WORK/operator"
+DERIVED="$WORK/derived"
+DECLARED="$WORK/declared"
+PLANS="$WORK/plans"
+INTAKES="$WORK/intakes"
+UNENCODED="$WORK/unencoded"
+MIGRATION="$WORK/migration"
+DECISIONS_OUT="$WORK/decisions"
+OUT="$WORK/orientation"
 
-# ── Operator profile (personal cross-project surface; organic-write-backed) ───
+VERSION=$(hook_version "$0")
+{
+  echo "╔══════════════════════════════════════════════════════════╗"
+  printf "║  %-56s║\n" "${VAULT_NAME} ORIENTATION"
+  echo "╚══════════════════════════════════════════════════════════╝"
+  echo "Date: $(date +%Y-%m-%d)   hook ${VERSION:-unknown}"
+  echo ""
+} > "$HEADER"
+
+: > "$OPERATOR"
 if [ -f "$HOME/.claude/operator.md" ]; then
-  echo "--- OPERATOR PROFILE ---"
-  cat "$HOME/.claude/operator.md"
-  echo ""
+  operator_size=$(byte_count "$HOME/.claude/operator.md")
+  echo "--- OPERATOR PROFILE ---" >> "$OPERATOR"
+  if [ "$operator_size" -le "$OPERATOR_BUDGET_BYTES" ]; then
+    cat "$HOME/.claude/operator.md" >> "$OPERATOR"
+  else
+    head -c "$OPERATOR_BUDGET_BYTES" "$HOME/.claude/operator.md" >> "$OPERATOR"
+    echo "" >> "$OPERATOR"
+    echo "⚠ operator.md is ${operator_size} B; excerpt capped at ${OPERATOR_BUDGET_BYTES} B." >> "$OPERATOR"
+    echo "full profile: $HOME/.claude/operator.md" >> "$OPERATOR"
+  fi
+  echo "" >> "$OPERATOR"
 fi
 
-# ══════════════════════════════════════════════════════════════════════════════
-# DERIVED — computed live. Nothing here is stored; nothing here can go stale.
-# ══════════════════════════════════════════════════════════════════════════════
-echo "--- DERIVED (computed live — git + disk) ---"
-
-if ! command -v git >/dev/null 2>&1; then
-  echo "⚠ git is not on PATH — cannot compute branch, commits, or push status this session."
-elif ! git -C "$VAULT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  echo "⚠ NOT A GIT REPOSITORY — no version-control history to derive from."
-  echo "  Session continuity is degraded: run 'git init' + first commit to enable DERIVED signals."
-else
-  BRANCH=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null)
-  echo "Branch: ${BRANCH:-<unknown>}"
-
-  echo "Last 5 commits:"
-  if git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
-    git -C "$VAULT" log -5 --oneline 2>/dev/null | sed 's/^/  /'
+{
+  echo "════════════════════════════════════════════════════════════"
+  echo "DERIVED — live from git + disk"
+  echo "════════════════════════════════════════════════════════════"
+  if ! command -v git >/dev/null 2>&1; then
+    echo "ERROR: git not on PATH — branch, history, and recovery posture unavailable"
+  elif ! git -C "$VAULT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "Git: NONE — no local history and no git-derived recovery"
   else
-    echo "  (no commits yet)"
-  fi
-
-  UNCOMMITTED=$(git -C "$VAULT" status --porcelain 2>/dev/null | grep -c .)
-  echo "Uncommitted changes: ${UNCOMMITTED} file(s)"
-
-  UPSTREAM=$(git -C "$VAULT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)
-  if [ -n "$UPSTREAM" ]; then
-    UNPUSHED=$(git -C "$VAULT" rev-list --count "${UPSTREAM}..HEAD" 2>/dev/null)
-    echo "Unpushed commits: ${UNPUSHED:-?} (ahead of ${UPSTREAM})"
-  else
-    echo "Unpushed commits: ⚠ no upstream tracking branch — push status unknown (set with: git push -u)"
-  fi
-
-  echo "Recently modified (non-ignored, top 5):"
-  RECENT=$(git -C "$VAULT" ls-files --cached --others --exclude-standard -z 2>/dev/null \
-    | while IFS= read -r -d '' f; do
-        [ -f "$VAULT/$f" ] || continue
-        m=$(stat -c %Y "$VAULT/$f" 2>/dev/null) || continue
-        printf '%s\t%s\n' "$m" "$f"
-      done | sort -rn | head -5 | cut -f2-)
-  if [ -n "$RECENT" ]; then
-    echo "$RECENT" | sed 's/^/  /'
-  else
-    echo "  (none tracked or all ignored)"
-  fi
-fi
-
-# Last session record + its age
-LAST="$VAULT/ops/sessions/last-active.md"
-echo ""
-if [ -f "$LAST" ]; then
-  MT=$(stat -c %Y "$LAST" 2>/dev/null)
-  if [ -n "$MT" ]; then
-    AGE_DAYS=$(( ( $(date +%s) - MT ) / 86400 ))
-    echo "Last session record (ops/sessions/last-active.md, ${AGE_DAYS}d old):"
-  else
-    echo "Last session record (ops/sessions/last-active.md):"
-  fi
-  sed 's/^/  /' "$LAST"
-else
-  echo "Last session record: none (no ops/sessions/last-active.md yet)."
-fi
-echo ""
-
-# ══════════════════════════════════════════════════════════════════════════════
-# DECLARED — from compass.md. Things git cannot tell you. Historical if stale.
-# ══════════════════════════════════════════════════════════════════════════════
-# Resolve compass path from the manifest's exports.compass, then fall back.
-EXPORT_COMPASS=""
-if [ -f "$MANIFEST" ]; then
-  EXPORT_COMPASS=$(awk '
-    /^exports:/{inx=1; next}
-    inx && /^[^[:space:]#]/{inx=0}
-    inx && /compass:/{sub(/.*compass:[[:space:]]*/,""); gsub(/"/,""); print; exit}
-  ' "$MANIFEST" | xargs 2>/dev/null)
-fi
-COMPASS=""
-for cand in "$EXPORT_COMPASS" "compass.md" "ops/compass.md"; do
-  [ -n "$cand" ] && [ -f "$VAULT/$cand" ] && { COMPASS="$VAULT/$cand"; break; }
-done
-
-echo "--- DECLARED (compass intent — Focus / Questions / Flags) ---"
-if [ -z "$COMPASS" ]; then
-  echo "⚠ No compass found (looked for exports.compass, compass.md, ops/compass.md)."
-  echo "  Declared intent is unavailable — create a compass so orientation has intent to show."
-else
-  UPDATED=$(grep -oE '\*Updated:[[:space:]]*[0-9]{4}-[0-9]{2}-[0-9]{2}\*' "$COMPASS" 2>/dev/null \
-    | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
-  if [ -n "$UPDATED" ] && U_EPOCH=$(date -d "$UPDATED" +%s 2>/dev/null); then
-    C_AGE=$(( ( $(date +%s) - U_EPOCH ) / 86400 ))
-    if [ "$C_AGE" -gt "$STALE_DAYS" ]; then
-      echo "╔══════════════════════════════════════════════════════════╗"
-      echo "║  ⚠ intent last declared ${C_AGE} days ago — treat as HISTORICAL"
-      echo "║  The compass below reflects intent as of ${UPDATED}, not now."
-      echo "║  Trust the DERIVED section above for current state.       ║"
-      echo "╚══════════════════════════════════════════════════════════╝"
+    branch=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    echo "Branch: ${branch:-<unknown>}"
+    echo "Last 5 commits:"
+    if git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
+      git -C "$VAULT" log -5 --oneline 2>/dev/null | sed 's/^/  /'
+      local_history=yes
+    else
+      echo "  (no commits yet)"
+      local_history=no
     fi
-  elif [ -z "$UPDATED" ]; then
-    echo "⚠ compass has no '*Updated: YYYY-MM-DD*' stamp — cannot judge staleness. Add one."
-  else
-    echo "⚠ could not parse compass Updated date '$UPDATED' — staleness unknown."
+
+    tracked_changes=$(git -C "$VAULT" status --porcelain 2>/dev/null | grep -cE '^[ MARCUD?!][MDARC]' || true)
+    untracked_count=$(git -C "$VAULT" ls-files --others --exclude-standard 2>/dev/null | grep -c . || true)
+    untracked_bytes=$(
+      cd "$VAULT" || exit 1
+      git ls-files --others --exclude-standard -z 2>/dev/null |
+        xargs -0 -r stat -c %s 2>/dev/null |
+        awk '{total += $1} END {print total+0}'
+    )
+    remote_count=$(git -C "$VAULT" remote 2>/dev/null | grep -c . || true)
+    upstream=$(git -C "$VAULT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+    if [ -n "$upstream" ]; then
+      unpushed=$(git -C "$VAULT" rev-list --count "${upstream}..HEAD" 2>/dev/null || true)
+      upstream_state="${upstream}; ${unpushed:-?} unpushed"
+    else
+      upstream_state="NONE; push status unknown"
+    fi
+    echo "Recovery posture: local-history=${local_history}; remotes=${remote_count}; upstream=${upstream_state}; tracked-changes=${tracked_changes}; untracked=${untracked_count} files/${untracked_bytes} B"
+
+    echo "Recently modified (non-ignored, top 5):"
+    recent=$(
+      cd "$VAULT" || exit 1
+      git ls-files --cached --others --exclude-standard -z 2>/dev/null |
+        xargs -0 -r stat -c '%Y %n' 2>/dev/null |
+        sort -rn |
+        head -5 |
+        cut -d' ' -f2-
+    )
+    if [ -n "$recent" ]; then
+      printf '%s\n' "$recent" | sed 's/^/  /'
+    else
+      echo "  (none)"
+    fi
   fi
-  cat "$COMPASS"
-fi
-echo ""
 
-# Decisions log (human-authored calls; injected verbatim — D2 keeps it unchanged)
+  last="$VAULT/ops/sessions/last-active.md"
+  if [ -f "$last" ]; then
+    last_epoch=$(stat -c %Y "$last" 2>/dev/null || true)
+    now_epoch=$(date +%s)
+    age_days=$(( (now_epoch - last_epoch) / 86400 ))
+    echo "Last session record: ${age_days} day(s) old — ops/sessions/last-active.md"
+    sed -n '1,12p' "$last" | sed 's/^/  /'
+  else
+    echo "Last session record: MISSING"
+  fi
+  echo ""
+} > "$DERIVED"
+
+: > "$DECLARED"
+COMPASS=$(find_compass "$VAULT" 2>/dev/null || true)
+if [ -n "$COMPASS" ]; then
+  compass_size=$(byte_count "$COMPASS")
+  {
+    echo "════════════════════════════════════════════════════════════"
+    echo "DECLARED — compass intent"
+    echo "════════════════════════════════════════════════════════════"
+  } >> "$DECLARED"
+  updated=$(grep -m1 -oE '\*Updated: [0-9]{4}-[0-9]{2}-[0-9]{2}\*' "$COMPASS" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' || true)
+  if [ -n "$updated" ]; then
+    updated_epoch=$(date -d "$updated" +%s 2>/dev/null || true)
+    if [ -n "$updated_epoch" ]; then
+      compass_age=$(( ($(date +%s) - updated_epoch) / 86400 ))
+      if [ "$compass_age" -gt "$STALE_DAYS" ]; then
+        echo "⚠ intent last declared ${compass_age} days ago — treat as HISTORICAL" >> "$DECLARED"
+      fi
+    fi
+  else
+    echo "⚠ compass has no '*Updated: YYYY-MM-DD*' stamp — staleness unknown" >> "$DECLARED"
+  fi
+  if [ "$compass_size" -le 5000 ]; then
+    cat "$COMPASS" >> "$DECLARED"
+  else
+    echo "⚠ compass is ${compass_size} B; body omitted above the 5000 B source cap." >> "$DECLARED"
+    echo "full compass: ${COMPASS#$VAULT/}" >> "$DECLARED"
+  fi
+  echo "" >> "$DECLARED"
+fi
+
+: > "$PLANS"
+if [ -d "$VAULT/docs/plans" ]; then
+  open_count=0
+  unknown_count=0
+  while IFS= read -r plan; do
+    status=$(frontmatter_status "$plan" 2>/dev/null || true)
+    case "$status" in
+      draft|active|blocked)
+        if [ "$open_count" -eq 0 ]; then echo "--- OPEN PLANS ---" >> "$PLANS"; fi
+        plan_epoch=$(stat -c %Y "$plan" 2>/dev/null || true)
+        plan_age=$(( ($(date +%s) - plan_epoch) / 86400 ))
+        echo "  $(basename "$plan") · status=${status} · mtime-age=${plan_age}d" >> "$PLANS"
+        open_count=$((open_count + 1))
+        ;;
+      done|closed) ;;
+      *)
+        if [ "$unknown_count" -eq 0 ]; then echo "--- PLAN METADATA WARNINGS ---" >> "$PLANS"; fi
+        echo "  ⚠ $(basename "$plan") · status=${status:-UNKNOWN}" >> "$PLANS"
+        unknown_count=$((unknown_count + 1))
+        ;;
+    esac
+  done < <(find "$VAULT/docs/plans" -maxdepth 1 -type f -name '*.md' | sort)
+  [ -s "$PLANS" ] && echo "" >> "$PLANS"
+fi
+
+: > "$INTAKES"
+if [ -f "$MANIFEST" ]; then
+  while IFS= read -r intake; do
+    case "$intake" in
+      /*|[A-Za-z]:*|*'..'*)
+        echo "⚠ invalid intake path in manifest: ${intake}" >> "$INTAKES"
+        continue
+        ;;
+    esac
+    intake_dir="$VAULT/${intake%/}"
+    if [ ! -d "$intake_dir" ]; then
+      echo "⚠ declared intake missing: ${intake}" >> "$INTAKES"
+      continue
+    fi
+    intake_count=$(find "$intake_dir" -maxdepth 1 -type f ! -name 'README.md' | wc -l | tr -d '[:space:]')
+    if [ "$intake_count" -gt 0 ]; then
+      echo "--- INTAKE: ${intake} (${intake_count} pending) ---" >> "$INTAKES"
+      find "$intake_dir" -maxdepth 1 -type f ! -name 'README.md' -printf '%T@ %f\n' |
+        sort -rn |
+        head -5 |
+        cut -d' ' -f2- |
+        sed 's/^/  /' >> "$INTAKES"
+    fi
+  done < <(manifest_intakes "$MANIFEST")
+  [ -s "$INTAKES" ] && echo "" >> "$INTAKES"
+fi
+
+: > "$UNENCODED"
 DECISIONS="$VAULT/ops/decisions.md"
-if [ -f "$DECISIONS" ]; then
-  echo "--- DECISIONS ---"
-  cat "$DECISIONS"
-  # Volume signal. Corrected char class (was '^[^[:space:]-#]' which raises Invalid range end;
-  # '-' must be last in a bracket expression). Counts non-blank, non-comment, non-bullet lines.
-  DEC_COUNT=$(grep -c '^[^[:space:]#-]' "$DECISIONS" 2>/dev/null)
-  DEC_COUNT=${DEC_COUNT:-0}
-  echo ""
-  echo "decisions.md: ${DEC_COUNT} content line(s)"
-  echo ""
+if [ -f "$DECISIONS" ] && grep -qE '^[[:space:]]*State:[[:space:]]*unencoded[[:space:]]*$' "$DECISIONS"; then
+  echo "--- UNENCODED DECISIONS ---" >> "$UNENCODED"
+  awk '
+    /^[[:space:]]*Decision-ID:[[:space:]]*/ {
+      id=$0; sub(/^[[:space:]]*Decision-ID:[[:space:]]*/, "", id)
+    }
+    /^[[:space:]]*Governs:[[:space:]]*/ {
+      governs=$0; sub(/^[[:space:]]*Governs:[[:space:]]*/, "", governs)
+    }
+    /^[[:space:]]*State:[[:space:]]*unencoded[[:space:]]*$/ {
+      printf "  %s · %s\n", (id ? id : "<missing-id>"), (governs ? governs : "<missing-governs>")
+      id=""; governs=""
+    }
+  ' "$DECISIONS" >> "$UNENCODED"
+  echo "" >> "$UNENCODED"
 fi
 
-# ══════════════════════════════════════════════════════════════════════════════
-# PRE-V4 CHECK (D8) — offer migration when this vault predates the context contract.
-# ══════════════════════════════════════════════════════════════════════════════
+: > "$MIGRATION"
 if [ -f "$MANIFEST" ] && ! grep -q '^exports:' "$MANIFEST" 2>/dev/null; then
-  echo "--- MIGRATION ---"
-  echo "⚠ PRE-V4 VAULT: ops/vault-manifest.md has no 'exports:' contract. This vault predates"
-  echo "  Vault OS v4. Offer to migrate it (slim compass, context-contract manifest, native"
-  echo "  permissions, v4 hooks) — see spec/vault-os-v4.md in the vault-os repo."
-  echo ""
+  {
+    echo "--- MIGRATION ---"
+    echo "⚠ PRE-V4 VAULT: manifest has no exports contract. Offer v4.2 migration."
+    echo ""
+  } > "$MIGRATION"
 fi
 
-echo "╔══════════════════════════════════════════════════════════╗"
-echo "║  Continuity is computed. /capture only adds narrative.    ║"
-echo "╚══════════════════════════════════════════════════════════╝"
+: > "$OUT"
+cat "$HEADER" >> "$OUT"
+
+append_section() {
+  local section="$1" key="$2" limit="$3" size used
+  size=$(byte_count "$section")
+  used=$(byte_count "$OUT")
+  if [ "$size" -eq 0 ]; then
+    printf -v "${key}_INJECTED" '%s' 0
+  elif [ $((used + size)) -le "$limit" ]; then
+    cat "$section" >> "$OUT"
+    printf -v "${key}_INJECTED" '%s' "$size"
+  else
+    echo "⚠ ${key,,} section omitted: ${size} B would exceed the non-decision budget." >> "$OUT"
+    printf -v "${key}_INJECTED" '%s' 0
+  fi
+}
+
+append_section "$OPERATOR" OPERATOR "$NON_DECISION_BUDGET_BYTES"
+append_section "$DERIVED" DERIVED "$NON_DECISION_BUDGET_BYTES"
+append_section "$DECLARED" DECLARED "$NON_DECISION_BUDGET_BYTES"
+append_section "$PLANS" PLANS "$NON_DECISION_BUDGET_BYTES"
+append_section "$INTAKES" INTAKES "$NON_DECISION_BUDGET_BYTES"
+append_section "$UNENCODED" UNENCODED "$NON_DECISION_BUDGET_BYTES"
+append_section "$MIGRATION" MIGRATION "$NON_DECISION_BUDGET_BYTES"
+
+DECISIONS_INJECTED=0
+if [ -f "$DECISIONS" ]; then
+  used=$(byte_count "$OUT")
+  available=$((ORIENTATION_BUDGET_BYTES - used - 700))
+  if [ "$available" -gt 260 ]; then
+    render_decisions "$DECISIONS" "$available" "$WORK" "$DECISIONS_OUT"
+    decision_size=$(byte_count "$DECISIONS_OUT")
+    if [ "$decision_size" -le "$available" ]; then
+      cat "$DECISIONS_OUT" >> "$OUT"
+      DECISIONS_INJECTED="$decision_size"
+    else
+      echo "⚠ decisions section omitted: bounded renderer exceeded its allowance." >> "$OUT"
+    fi
+  else
+    echo "⚠ decisions body omitted: no orientation budget remains; full log: ops/decisions.md" >> "$OUT"
+  fi
+fi
+
+pre_footer=$(byte_count "$OUT")
+{
+  echo ""
+  echo "--- ORIENTATION COST ---"
+  echo "operator=${OPERATOR_INJECTED:-0}B derived=${DERIVED_INJECTED:-0}B declared=${DECLARED_INJECTED:-0}B plans=${PLANS_INJECTED:-0}B intakes=${INTAKES_INJECTED:-0}B decisions=${DECISIONS_INJECTED:-0}B"
+  echo "pre-footer=${pre_footer}B budget=${ORIENTATION_BUDGET_BYTES}B"
+} >> "$OUT"
+
+total=$(byte_count "$OUT")
+if [ "$total" -gt "$ORIENTATION_BUDGET_BYTES" ]; then
+  echo "ERROR: orientation renderer produced ${total} B above the ${ORIENTATION_BUDGET_BYTES} B budget; body suppressed."
+  echo "Run: CLAUDE_PROJECT_DIR=\"$VAULT\" bash \"$0\" --selftest"
+  exit 1
+fi
+
+cat "$OUT"
 ```
 
 **Hard constraints:**
 - `VAULT` set from `$CLAUDE_PROJECT_DIR` with sentinel check — never hardcode paths.
 - Do NOT cat CLAUDE.md, notes, or any file beyond compass / decisions / last-active / operator.md.
-- Keep the `--selftest` block and the `vault-os-hook-version: 4.1.0` stamp intact.
+- Keep the `--selftest` block, `--conformance` primitive, and the `vault-os-hook-version: 4.2.0` stamp intact.
 - Everything fails loudly (D6): a check that cannot run says so; it never defaults to "fine".
 
 ---
 
 ### T-CAPTURE: `.claude/hooks/session-capture.sh`
 
-Write this file verbatim (vault-os v4.1.0). Minimal machine record on SessionEnd; `/capture` enriches with narrative when invoked. Fires on clean exits only (NOT VS Code tab close). Must not clobber a richer same-day `/capture` record.
+Write this file verbatim (vault-os v4.2.0). It archives any narrative handoff byte-for-byte before writing a minimal machine record on SessionEnd; `/capture` enriches with narrative when invoked. Fires on clean exits only (NOT VS Code tab close).
 
 ```bash
 #!/bin/bash
-# session-capture.sh — Vault OS v4 (D2: capture is a hook with a skill on top)
-# vault-os-hook-version: 4.1.0
-# Fires at SessionEnd (clean exits only — does NOT fire on VS Code tab close).
-#
-# Reliability tiers (D2):
-#   1. THIS hook writes a minimal machine record when it fires.
-#   2. /capture enriches with narrative when invoked — optional, never load-bearing.
-#   3. DERIVED orientation (session-orient.sh) is the safety net — git is the record of last resort.
-# This hook must not clobber a richer /capture record written the same day (same-day marker check).
+# session-capture.sh — Vault OS v4.2
+# vault-os-hook-version: 4.2.0
+# Fires at SessionEnd (clean exits only; editor/tab termination may not fire it).
 
-# ── Selftest: verify this hook's own dependencies, loudly ─────────────────────
-if [ "${1:-}" = "--selftest" ]; then
-  SELFTEST_FAIL=0
+set -u
 
-  if TODAY_CHECK=$(date +%Y-%m-%d 2>/dev/null) && [ -n "$TODAY_CHECK" ] \
-     && TIME_CHECK=$(date +%H:%M 2>/dev/null) && [ -n "$TIME_CHECK" ]; then
-    echo "PASS: date +%Y-%m-%d / +%H:%M format (${TODAY_CHECK} ${TIME_CHECK})"
+SELF_MARK="auto-generated by session-capture.sh"
+
+archive_narrative() {
+  local source="$1" sessions="$2" raw stamp base target suffix
+  [ -f "$source" ] || return 0
+  grep -q "$SELF_MARK" "$source" 2>/dev/null && return 0
+
+  raw=$(grep -m1 '^Date:' "$source" 2>/dev/null | sed -E 's/^Date:[[:space:]]*//' || true)
+  if [[ "$raw" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})[[:space:]]+([0-9]{2}):([0-9]{2})(:([0-9]{2}))? ]]; then
+    stamp="${BASH_REMATCH[1]}-${BASH_REMATCH[2]}${BASH_REMATCH[3]}${BASH_REMATCH[5]:-00}"
+  elif [[ "$raw" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})$ ]]; then
+    stamp="${BASH_REMATCH[1]}-000000"
   else
-    echo "FAIL: date +%Y-%m-%d or +%H:%M produced no output — cannot stamp session record"
-    SELFTEST_FAIL=1
+    echo "ERROR: cannot archive narrative session record — unparseable Date line; original preserved" >&2
+    return 1
   fi
 
-  if printf 'Source: auto-generated by session-capture.sh\n' \
-       | grep -q 'auto-generated by session-capture.sh'; then
-    echo "PASS: grep -q works — same-day/self-stub detection available"
+  mkdir -p "$sessions"
+  base="$sessions/${stamp}.md"
+  target="$base"
+  suffix=2
+  while [ -e "$target" ]; do
+    target="$sessions/${stamp}-${suffix}.md"
+    suffix=$((suffix + 1))
+  done
+  cp -p "$source" "$target" || {
+    echo "ERROR: failed to archive narrative session record to $target; original preserved" >&2
+    return 1
+  }
+  echo "Archived narrative session record: ${target##*/}" >&2
+}
+
+run_selftest() {
+  local fail=0 temp sessions source first second
+  for dependency in date grep sed cp mkdir git awk sort mktemp rm; do
+    if command -v "$dependency" >/dev/null 2>&1; then
+      echo "PASS: ${dependency} available"
+    else
+      echo "FAIL: ${dependency} unavailable"
+      fail=1
+    fi
+  done
+
+  temp=$(mktemp -d 2>/dev/null || true)
+  if [ -n "$temp" ] && [ -d "$temp" ]; then
+    sessions="$temp/sessions"
+    source="$sessions/last-active.md"
+    mkdir -p "$sessions"
+    printf 'Date: 2026-07-28 12:54\nNarrative\n' > "$source"
+    archive_narrative "$source" "$sessions" >/dev/null 2>&1 || fail=1
+    archive_narrative "$source" "$sessions" >/dev/null 2>&1 || fail=1
+    first="$sessions/2026-07-28-125400.md"
+    second="$sessions/2026-07-28-125400-2.md"
+    if [ -f "$first" ] && [ -f "$second" ]; then
+      echo "PASS: narrative archive uses Windows-safe collision-free names"
+    else
+      echo "FAIL: narrative archive collision test failed"
+      fail=1
+    fi
+    rm -rf "$temp"
   else
-    echo "FAIL: grep -q did not match expected sample — skip-overwrite check unavailable"
-    SELFTEST_FAIL=1
+    echo "FAIL: temporary workspace unavailable"
+    fail=1
   fi
 
-  if command -v git >/dev/null 2>&1; then
-    echo "PASS: git is on PATH ($(git --version 2>/dev/null)) — files-touched approximation available"
-  else
-    echo "WARN: git not on PATH — files-touched list will be empty (record still written)"
-  fi
-
-  SELFTEST_VAULT="${CLAUDE_PROJECT_DIR:-$PWD}"
-  if [ -d "$SELFTEST_VAULT" ] && { [ -d "$SELFTEST_VAULT/ops" ] || [ -w "$SELFTEST_VAULT" ]; }; then
-    echo "PASS: $SELFTEST_VAULT/ops/sessions write target has a reachable parent"
-  else
-    echo "FAIL: $SELFTEST_VAULT is not reachable/writable — cannot write last-active.md"
-    SELFTEST_FAIL=1
-  fi
-
-  if [ "$SELFTEST_FAIL" -eq 0 ]; then
+  if [ "$fail" -eq 0 ]; then
     echo "SELFTEST: all checks passed"
-    exit 0
-  else
-    echo "SELFTEST: one or more checks failed"
-    exit 1
+    return 0
   fi
+  echo "SELFTEST: one or more checks failed"
+  return 1
+}
+
+if [ "${1:-}" = "--selftest" ]; then
+  run_selftest
+  exit $?
 fi
 
 VAULT="${CLAUDE_PROJECT_DIR:?ERROR: CLAUDE_PROJECT_DIR not set — hook must be invoked by Claude Code}"
-mkdir -p "$VAULT/ops/sessions"
+SESSIONS="$VAULT/ops/sessions"
+LAST="$SESSIONS/last-active.md"
+mkdir -p "$SESSIONS"
 
-LAST="$VAULT/ops/sessions/last-active.md"
-DATE=$(date +%Y-%m-%d)
-TIME=$(date +%H:%M)
-SELF_MARK="auto-generated by session-capture.sh"
-
-# Same-day marker check: if a record dated today already exists and it is NOT this hook's own
-# stub, a richer /capture record was written this session — preserve it, do not clobber.
-if [ -f "$LAST" ] \
-   && grep -q "^Date: ${DATE}" "$LAST" 2>/dev/null \
-   && ! grep -q "$SELF_MARK" "$LAST" 2>/dev/null; then
-  exit 0
+if [ -f "$LAST" ] && ! grep -q "$SELF_MARK" "$LAST" 2>/dev/null; then
+  archive_narrative "$LAST" "$SESSIONS" || exit 1
 fi
 
-# Files touched — APPROXIMATION. SessionEnd cannot diff against session start (no start snapshot
-# is available to the hook), so we approximate with the current uncommitted working-tree changes
-# plus the files in today's most recent commit. This over-counts (pre-existing dirty files) and
-# under-counts (changes already committed on an earlier day). /capture gives the accurate story.
+DATE=$(date +%Y-%m-%d)
+TIME=$(date +%H:%M)
 BRANCH="(not a git repo)"
 FILES=""
+
 if command -v git >/dev/null 2>&1 && git -C "$VAULT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  BRANCH=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null)
+  BRANCH=$(git -C "$VAULT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
   DIRTY=$(git -C "$VAULT" status --porcelain 2>/dev/null | awk '{print $NF}')
   TODAY_COMMIT=""
   if git -C "$VAULT" rev-parse HEAD >/dev/null 2>&1; then
-    LAST_COMMIT_DATE=$(git -C "$VAULT" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null)
+    LAST_COMMIT_DATE=$(git -C "$VAULT" log -1 --format=%cd --date=format:%Y-%m-%d 2>/dev/null || true)
     if [ "$LAST_COMMIT_DATE" = "$DATE" ]; then
-      TODAY_COMMIT=$(git -C "$VAULT" show --name-only --format= HEAD 2>/dev/null)
+      TODAY_COMMIT=$(git -C "$VAULT" show --name-only --format= HEAD 2>/dev/null || true)
     fi
   fi
   FILES=$(printf '%s\n%s\n' "$DIRTY" "$TODAY_COMMIT" | grep -v '^$' | sort -u)
@@ -525,7 +993,7 @@ fi
 {
   echo "Date: ${DATE} ${TIME}"
   echo "Branch: ${BRANCH:-<unknown>}"
-  echo "Source: ${SELF_MARK} (SessionEnd hook — clean exit only; does NOT fire on VS Code tab close)"
+  echo "Source: ${SELF_MARK} (SessionEnd hook — clean exit only; editor/tab termination may not fire)"
   echo ""
   echo "Files touched (approximation — see note):"
   if [ -n "$FILES" ]; then
@@ -536,7 +1004,7 @@ fi
   echo ""
   echo "Note: SessionEnd cannot diff against session start. The list above is uncommitted"
   echo "working-tree changes plus files in today's most recent commit — an approximation, not"
-  echo "a session diff. Run /capture for a narrative summary of what was actually done and why."
+  echo "a session diff. Run /capture for a narrative summary of what actually happened and why."
 } > "$LAST"
 ```
 
@@ -574,6 +1042,15 @@ import sys
 import json
 import os
 import re
+
+# Windows portability: default stdout/stderr encoding is often cp1252, which cannot encode the
+# violation message's ⚠️ / — characters and would crash the hook with UnicodeEncodeError instead of
+# printing the violation. Force UTF-8 on the streams. No-op where already UTF-8 (Linux/macOS).
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+except Exception:
+    pass
 
 REQUIRED_FIELDS = {
     "description:":  "description  (~150 chars — adds scope/mechanism beyond the title, not a restatement)",
@@ -786,18 +1263,47 @@ def check_moc_bare_links(content, violations):
         )
 
 
+CLI_MODE = False
+
+
+def cannot_run(msg, detail=""):
+    """A check that cannot run must SAY SO — never default to a silent pass. This validator's
+    family has produced false passes by swallowing an unreadable file and exiting clean. CLI mode
+    exits 2 (could-not-run); hook mode exits 0 so it never breaks the harness, but always prints."""
+    print(f"\n⚠️  VALIDATOR COULD NOT RUN — {msg}")
+    if detail:
+        print(f"   {detail}")
+    sys.exit(2 if CLI_MODE else 0)
+
+
 def main():
-    try:
-        data = json.load(sys.stdin)
-    except Exception:
-        sys.exit(0)
+    global CLI_MODE
+    argv = sys.argv[1:]
+    CLI_MODE = "--file" in argv
 
-    file_path = data.get("tool_input", {}).get("file_path", "")
-    if not file_path:
-        sys.exit(0)
+    # Resolve the target note. CLI: `validate-note.py --file <path>` (real exit codes, for sweeps).
+    # Hook: file_path arrives in the PostToolUse JSON on stdin.
+    if CLI_MODE:
+        i = argv.index("--file")
+        if i + 1 >= len(argv):
+            cannot_run("--file given with no path argument")
+        file_path = argv[i + 1]
+    else:
+        try:
+            data = json.load(sys.stdin)
+        except Exception as e:
+            cannot_run("could not parse hook input from stdin", f"{type(e).__name__}: {e}")
+        file_path = data.get("tool_input", {}).get("file_path", "")
+        if not file_path:
+            sys.exit(0)
 
-    normalised = file_path.replace("\\", "/")
-    if "/notes/" not in normalised or not normalised.endswith(".md"):
+    # Resolve to ABSOLUTE before the scope test: a relative path like "notes/foo.md" contains
+    # "notes/" but not "/notes/", so the old test silently skipped it and a sweep "passed" every
+    # note without reading one. Absolute-first closes that false pass.
+    file_path = os.path.abspath(file_path).replace("\\", "/")
+    if "/notes/" not in file_path or not file_path.endswith(".md"):
+        if CLI_MODE:
+            cannot_run(f"{file_path} is not inside a notes/ directory (or is not .md)")
         sys.exit(0)
 
     basename = os.path.basename(file_path)
@@ -808,8 +1314,8 @@ def main():
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-    except Exception:
-        sys.exit(0)
+    except Exception as e:
+        cannot_run(f"could not read {basename}", f"{type(e).__name__}: {e}")
 
     # MOC files: bare-link check only
     if is_moc_file(basename):
@@ -831,7 +1337,7 @@ def main():
         print(f"\n⚠️  VAULT VIOLATION — {basename}")
         print("   No frontmatter block found. Notes require YAML frontmatter.")
         print("\n   Fix before moving on.")
-        sys.exit(0)
+        sys.exit(1 if CLI_MODE else 0)
 
     violations = []
 
@@ -895,6 +1401,10 @@ def main():
         for v in violations:
             print(f"   {v}" if v and not v.startswith("   ") else v)
         print("\n   Fix before moving on.")
+        sys.exit(1 if CLI_MODE else 0)
+
+    if CLI_MODE:
+        sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -917,6 +1427,216 @@ type-vocabulary:
   - tactic
   - distinction
   - contradiction
+```
+
+---
+
+### T-SOURCE-INDEX: `ops/build-source-index.py` (Module A — optional source axis)
+
+**Optional second axis for multi-source vaults.** Alongside topic MOCs, a vault that ingests many
+authors can carry a *source axis*: one `source-<author-slug>-moc.md` hub per author, listing that
+author's notes. It makes cross-axis queries cheap ("where does author X disagree with the domain
+consensus on Y") and is what the `/reduce` template's **(two-axis only)** steps regenerate.
+
+The axis is **derived, never hand-maintained** — keyed off an `author:` frontmatter field. To enable
+it: (1) add `author:` to your notes and, to enforce it, to `REQUIRED_FIELDS` in `validate-note.py`;
+(2) create a `source-<author-slug>-moc.md` hub per author with the stub below; (3) run this script
+after each `/reduce` batch. Single-axis vaults skip all of this.
+
+```python
+#!/usr/bin/env python3
+"""
+Regenerate the "Notes from this source" section of every source-*-moc.md
+from the `author:` frontmatter of notes/*.md.
+
+The source axis is DERIVED, not hand-maintained. `author:` is a required field on
+every atomic note (enforced by validate-note.py), so the mapping
+    author -> source-<slug>-moc.md
+is computable. Run this after a /reduce batch; never edit the generated section by hand.
+
+Fails loudly (vault-os v4 P2): authors whose notes exist but who have no source hub are
+reported as an error, never silently dropped. Exit 1 on any such gap.
+
+Usage:  python ops/build-source-index.py [--check]
+        --check  report author->hub gaps only; write nothing (exit 1 if any gap exists).
+                 It does NOT diff the generated sections — it will not tell you a hub is stale.
+"""
+
+import os
+import re
+import sys
+
+# Windows Python defaults stdout to the console codepage (often cp1252), which cannot encode the
+# em-dashes and smart quotes that appear in note descriptions. Force UTF-8 so this script fails on
+# real problems, not on printing them. Same guard as validate-note.py.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
+SECTION_HEADING = "## Notes from this source"
+GENERATED_PLACEHOLDER = "[Generated by ops/build-source-index.py — do not edit by hand.]"
+
+# Infrastructure files that are not atomic notes and carry no author:
+SKIP_NAMES = {"compass.md", "methods.md", "index.md", "dedup-index.md"}
+
+
+def vault_root():
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def slugify(name):
+    """'Ada Lovelace' -> 'ada-lovelace'"""
+    s = name.strip().strip('"').strip("'").lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    return s.strip("-")
+
+
+def frontmatter_field(content, field):
+    match = re.search(rf"^{re.escape(field)}:\s*(.+)$", content, re.MULTILINE)
+    if not match:
+        return None
+    return match.group(1).strip().strip('"').strip("'")
+
+
+def collect_notes(notes_dir):
+    """Return {author: [(slug, description), ...]} for atomic notes only."""
+    by_author = {}
+    unattributed = []
+    for fname in sorted(os.listdir(notes_dir)):
+        if not fname.endswith(".md"):
+            continue
+        if fname in SKIP_NAMES or fname.endswith("-moc.md"):
+            continue
+        path = os.path.join(notes_dir, fname)
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        author = frontmatter_field(content, "author")
+        slug = fname[:-3]
+        if not author:
+            unattributed.append(slug)
+            continue
+        desc = frontmatter_field(content, "description") or ""
+        by_author.setdefault(author, []).append((slug, desc))
+    return by_author, unattributed
+
+
+def render_section(entries):
+    """Bare links are correct here — a source hub is an address index, not an argument map."""
+    if not entries:
+        return GENERATED_PLACEHOLDER + "\n"
+    lines = []
+    for slug, desc in sorted(entries):
+        lines.append(f"- [[{slug}]] — {desc}" if desc else f"- [[{slug}]]")
+    return "\n".join(lines) + "\n"
+
+
+def rewrite_hub(hub_path, entries):
+    """Replace the generated section in place. Returns (changed, error)."""
+    with open(hub_path, "r", encoding="utf-8") as f:
+        content = f.read()
+
+    pattern = re.compile(
+        rf"({re.escape(SECTION_HEADING)}\n\n)(.*?)(\n---\n)", re.DOTALL
+    )
+    if not pattern.search(content):
+        return False, (
+            f"{os.path.basename(hub_path)}: no '{SECTION_HEADING}' section followed by "
+            "a '---' rule. Cannot regenerate — fix the hub's structure."
+        )
+
+    new_content = pattern.sub(
+        lambda m: m.group(1) + render_section(entries) + m.group(3), content, count=1
+    )
+    if new_content == content:
+        return False, None
+    with open(hub_path, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    return True, None
+
+
+def main():
+    check_only = "--check" in sys.argv
+    root = vault_root()
+    notes_dir = os.path.join(root, "notes")
+
+    if not os.path.isdir(notes_dir):
+        print(f"ERROR: notes/ not found at {notes_dir}")
+        sys.exit(1)
+
+    by_author, unattributed = collect_notes(notes_dir)
+
+    hubs = {}
+    for fname in os.listdir(notes_dir):
+        if fname.startswith("source-") and fname.endswith("-moc.md"):
+            hubs[fname[len("source-"):-len("-moc.md")]] = os.path.join(notes_dir, fname)
+
+    errors = []
+    changed = []
+
+    for author, entries in sorted(by_author.items()):
+        slug = slugify(author)
+        if slug not in hubs:
+            errors.append(
+                f"author '{author}' has {len(entries)} note(s) but no hub at "
+                f"notes/source-{slug}-moc.md — create it or correct the author field."
+            )
+            continue
+        if check_only:
+            continue
+        did_change, err = rewrite_hub(hubs[slug], entries)
+        if err:
+            errors.append(err)
+        elif did_change:
+            changed.append(f"source-{slug}-moc.md ({len(entries)} note(s))")
+
+    # Hubs with no notes yet are fine (a hub created before its first note) — reset to placeholder.
+    if not check_only:
+        for slug, path in sorted(hubs.items()):
+            if not any(slugify(a) == slug for a in by_author):
+                did_change, err = rewrite_hub(path, [])
+                if err:
+                    errors.append(err)
+                elif did_change:
+                    changed.append(f"source-{slug}-moc.md (reset — no notes yet)")
+
+    total_notes = sum(len(v) for v in by_author.values())
+    print(f"Scanned {total_notes} note(s) across {len(by_author)} author(s); {len(hubs)} hub(s).")
+    for c in changed:
+        print(f"  updated  {c}")
+    if unattributed:
+        print(f"\nWARNING: {len(unattributed)} note(s) with no author: field:")
+        for slug in unattributed[:10]:
+            print(f"  • {slug}")
+
+    if errors:
+        print("\nERRORS:")
+        for e in errors:
+            print(f"  • {e}")
+        sys.exit(1)
+
+    if check_only:
+        print("(--check: nothing written)")
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+**Source-hub stub** — create `notes/source-<author-slug>-moc.md` as:
+
+```markdown
+# [Author Name]
+
+Source hub — notes extracted from this author.
+
+## Notes from this source
+
+[Generated by ops/build-source-index.py — do not edit by hand.]
+
+---
+
+Topics:
+- [[index]]
 ```
 
 ---
@@ -1285,7 +2005,60 @@ Every domain MOC must have:
 MOC files (-moc.md): bare-link check only (checks 1–12 skipped).
 Infrastructure files (compass, methods, index, dedup-index): fully skipped.
 
+**Two run modes.** The PostToolUse hook exits 0 even on violations (they surface as feedback, not a
+harness error). For batch sweeps use CLI mode — `python .claude/hooks/validate-note.py --file <path>`
+— which returns real exit codes: **0** clean · **1** violations · **2** the validator could not
+inspect the note. Exit 2 exists because a check that cannot run must never be counted as a pass.
+Run a negative control (point it at a deliberately broken note, confirm exit 1) before trusting a
+sweep result.
+
 Fix before moving on.
+```
+
+---
+
+**§13b — Retrieval Protocol (Module A)**
+
+Note Rules govern writing to the graph; this governs reading from it — every command, and any
+ad-hoc question answered from vault content. Write verbatim:
+
+```
+## Retrieval Protocol
+
+The vault is a distillation ladder. Load the cheapest level that answers the question; never load a
+level you do not need.
+
+| Level | Surface | When |
+|---|---|---|
+| 3 | Every note title (`Glob notes/*.md`) | **always, first** |
+| 2 | One domain (or source) MOC | question is domain-shaped |
+| 1 | One note | only what level 3 selected |
+| 0 | One `inbox/` source | only to verify a quote or re-extract |
+
+**Two-stage retrieval is mandatory for any question that reads from the graph.**
+
+**Stage 1 — survey.** Glob `notes/*.md`. Because every title is a prose proposition (Note Rule 1),
+the listing is a complete semantic index of every claim in the vault at a fraction of the cost of
+the notes themselves. Select candidates from titles alone. Open nothing at this stage.
+
+**Stage 2 — read.** Read only what stage 1 selected, in full. Follow prose wikilinks one hop where
+an argument depends on them. Stop when the question is answered.
+
+Never bulk-read `notes/`. Never open a note to find out what it says — the title already said it.
+Open a note to find out *why* it holds.
+
+**Typed filtering.** When the question is typed rather than topical, grep frontmatter at stage 1
+instead of listing:
+
+    grep -l '^type: contradiction' notes/*.md      # the contradiction subgraph
+    grep -l '^author: <name>' notes/*.md            # one source's claims (two-axis vaults)
+
+**`notes/dedup-index.md` grows large — grep it, never Read it.** Reading it can cost several times
+the entire title index. Note Rule 7's "search dedup-index" means `grep`.
+
+**Note Rule 1 is load-bearing infrastructure, not a style preference.** The claim index works only
+while every title states a proposition. A note titled for its topic is invisible to stage 1 and has
+to be read to be found.
 ```
 
 ---
@@ -1349,7 +2122,7 @@ Write universal anti-patterns verbatim first, then add module-specific entries:
 **Don't skip /decide at the moment a decision is made.** Missing an entry means the next session re-litigates from scratch.
 **Don't use SessionStop as a hook event.** It does not exist; hooks wired to it silently never fire.
 **Don't rely on SessionEnd for VS Code tab close.** It doesn't fire on tab close; use /capture instead.
-**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is invisible cross-vault — notes/ above all.
+**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is out of contract even if filesystem permissions make it technically readable — notes/ above all.
 **Don't write to a foreign vault's knowledge graph without explicit instruction.** Deposit into its declared `intake:` instead; never edit in place.
 **Don't apply local vault schema rules to foreign vault content.** Each vault has its own schema and validate hooks.
 **Don't prune operator.md entries autonomously.** Cross-session entry value is invisible to a single-session observer; flag and defer to human.
@@ -1530,8 +2303,8 @@ v4 context contract (D3). YAML frontmatter (`---` delimited, consistent with the
 ---
 # ─────────────────────────────────────────────────────────────────────────────
 # VAULT MANIFEST — Vault OS v4 context contract (D3: sharing by contract, isolation by default)
-#   exports: — the ONLY surfaces a foreign session/agent may READ. Everything not listed is
-#              invisible cross-vault (notes/ above all). Isolation is default; sharing is opt-in.
+#   exports: — the ONLY surfaces a foreign session/agent should READ. Everything not listed is
+#              out of contract (notes/ above all); this is policy, not filesystem enforcement.
 #   intake:  — (optional) deposit-only inbound surface; foreign writers drop new files, never edit.
 #   domains: — discovery metadata; foreign intent must match before any load is allowed.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1548,7 +2321,11 @@ exports:
   compass: compass.md
   [If Module A:] index: notes/index.md      # export the graph ENTRY POINT only — never notes/ itself
   [If Module F:] architecture: architecture/
-  # Anything not listed here is invisible cross-vault. Do NOT export notes/.
+  # Anything not listed here is out of contract cross-vault. Do NOT export notes/.
+
+# agent-exports:         # optional — narrow extra paths for one named shared agent
+#   agent-name:
+#     - relative/path.md
 
 # intake:                # optional — deposit-only surface for foreign writers/agents
 #   [If Module B:] inbox: inbox/
@@ -1561,7 +2338,43 @@ cross-vault-dependencies: []
 ---
 ```
 
-Emit only the `exports:` / `intake:` keys that apply to selected modules. Remove the `[If Module X:]` markers from the final file. If no domains were identified in Phase 0, write `  - [none yet — add as vault is built]` under `domains:`.
+Emit only the `exports:` / `intake:` keys that apply to selected modules. Add
+`agent-exports:` only when the user has deliberately authorized a named agent and
+specific relative paths. Remove the `[If Module X:]` markers from the final file.
+If no domains were identified in Phase 0, write
+`  - [none yet — add as vault is built]` under `domains:`.
+
+---
+
+### T-SKIPLIST: `ops/reduce-skiplist.md` (Module B)
+
+Sources with no extractable argument. `/reduce` honours this list (Phase 1) and never extracts from
+a listed file. A skip silently suppresses content, so every entry is verified by **reading** the
+file, never inferred from the title. Scaffold with the header and empty tables; entries accrue as
+`/reduce` flags housekeeping sources.
+
+```markdown
+# Reduce Skip-list
+
+Sources in `inbox/` that carry **no extractable argument** — announcements, index pages, jobs
+boards, pure link roundups. `/reduce` must not extract notes from these.
+
+Every entry is **verified by reading the file**, never inferred from its title — titles misclassify
+at a high rate. Record the reason. When in doubt, leave it off: a weak note is recoverable, a
+silently dropped source is not.
+
+| File | Reason |
+|---|---|
+
+## Blocked pending missing assets — NOT skipped
+
+Files that carry a real argument whose substance sits in an asset that did not survive fetch
+(images, tables). Deferred, not suppressed — re-assess once the asset is supplied. Do not migrate
+these into the table above.
+
+| File | Missing | Why deferred |
+|---|---|---|
+```
 
 ---
 
@@ -1614,91 +2427,127 @@ These are global commands (`~/.claude/commands/`). Do not scaffold them locally.
 
 ### T-CMD-REDUCE: `.claude/commands/reduce.md` (Module A; full pipeline requires Module B)
 
+The proven orchestrated pipeline (validated at scale in the pmm vault). The main loop
+ORCHESTRATES — it orients, dispatches, and does housekeeping; **it never reads a source file or the
+dedup index itself.** Extraction runs on delegated Sonnet subagents, where tokens cost several times
+less than the (often Opus) main loop. Do not collapse this back into a single-agent, main-loop
+reduce — that is the naive version this template replaced, and it is both costlier and blind to the
+dedup index's real cost at scale.
+
+The two-axis steps (source hubs, `build-source-index.py`) are marked **(two-axis only)** — omit them
+for a single-axis vault. See T-SOURCE-INDEX for the opt-in source axis.
+
 ```
 Source files: $ARGUMENTS
 (Space-separated list. Single file is valid.)
 
----
-
-## Phase 1: Orientation reads (parallel)
-
-1. Read source file(s) from `inbox/` (or vault root if Module B not present)
-2. Read `compass.md` for current vault state
-3. Glob `notes/*.md` to get the full current note list
+Extraction runs on delegated Sonnet subagents, not the main loop. The main loop orients,
+dispatches, and does housekeeping — it never reads a source file or the dedup index itself.
 
 ---
 
-## Phase 2: Overlap scan
+## Phase 1: Orient (main loop — cheap)
 
-Read `notes/dedup-index.md` first. Identify existing notes that overlap with this source's themes.
-Read candidate notes in parallel before extracting any new claims.
+1. If `ops/reduce-skiplist.md` exists, read it. Any source listed there carries no extractable
+   argument — drop it from this batch and name it in the Phase 4 report. Never extract from a skipped file.
+2. Read `compass.md` for declared vault intent.
 
-Overlap rules:
-- Same phenomenon at same abstraction level → enrich or contradict existing note; do NOT create a duplicate
-- Same phenomenon at different abstraction level (what vs. why vs. how) → distinct note; link explicitly
-- Contradicting existing note → use `type: contradiction` and link with articulated reason
-
----
-
-## Phase 3: Plan
-
-Declare source-url once for this batch.
-Output plan table before creating any file:
-
-| # | Filename | Proposition (one sentence) | MOC(s) | Source |
-|---|----------|---------------------------|---------|--------|
-
-Write in foundation-before-elaboration order. Do not start writing until the plan table is complete.
+Do NOT read the source files here. Do NOT read `notes/dedup-index.md`. Do NOT glob `notes/`.
+That work happens inside the subagent, where tokens cost less.
 
 ---
 
-## Phase 4: Write
+## Phase 2: Dispatch extraction (one Sonnet subagent per source file)
 
-Each note must satisfy:
-- Title: prose proposition. Test: "This note argues that [title]" must be grammatically true.
-- Body: develop the claim with visible reasoning ("because," "therefore," "this suggests").
-- Wikilinks: pass the articulation test: "[[note]] connects because [specific reason]."
-- Full YAML frontmatter (6 required fields):
+Spawn with the Agent tool, `subagent_type: general-purpose`, **`model: 'sonnet'` passed
+explicitly** — general-purpose inherits the main loop otherwise (Opus, if settings pin it), which is
+the whole cost problem.
 
-      ---
-      description: ~150 chars adding scope/mechanism beyond title (not a restatement)
-      type: [from ops/validate-config.yaml vocabulary]
-      source-video: "[[source-slug]]"
-      source-url: [url]
-      published: YYYY-MM-DD
-      created: YYYY-MM-DD
-      ---
+Run source files concurrently (one message, multiple tool calls). Each subagent owns exactly one
+source file and writes only to `notes/`. It never touches MOCs, the dedup index, or the archive —
+those are serialized in Phase 3 to avoid concurrent writers on the same file.
 
-- Topics: footer (body content, not YAML):
+Brief each subagent with the following, substituting the source path:
 
-      ---
-      Topics:
-      - [[domain-moc]]
-
-Quality gate: each note must be specific (named mechanism or framework), non-obvious, and arguable.
+> Extract atomic notes from `inbox/<file>` into this vault's knowledge graph.
+> The project CLAUDE.md defines the Note Rules and schema — follow them exactly.
+>
+> **Step 1 — read the source.** If it proves to be pure housekeeping (announcement, index page,
+> link roundup with no arguable claim), stop and return `SKIP: <reason>`. Judge by reading, never
+> by the title — titles misclassify at a high rate.
+>
+> **Step 2 — overlap scan.** `notes/dedup-index.md` can be very large (100KB+ at scale). **Grep it;
+> never Read it.** One record per line, format `slug | description | moc1, moc2`, so a keyword hit
+> returns the whole record without opening the file:
+>
+>     grep -i -E 'theme-a|theme-b|theme-c' notes/dedup-index.md
+>
+> Run one grep per theme the source argues. Then Read only the handful of overlapping notes the
+> greps surfaced — in parallel, in full.
+>
+> Overlap rules:
+> - Same phenomenon at same abstraction level → enrich or contradict the existing note; never duplicate
+> - Same phenomenon at different abstraction level (what vs. why vs. how) → distinct note; link explicitly
+> - Contradicts an existing note → `type: contradiction`, link with an articulated reason
+>
+> **Step 3 — plan.** Produce this table before writing any file, in foundation-before-elaboration order:
+>
+> | # | Filename | Proposition (one sentence) | MOC(s) | Source |
+> |---|----------|---------------------------|---------|--------|
+>
+> **Step 4 — write.** Each note must satisfy:
+> - Title: prose proposition. Test: "This note argues that [title]" must be grammatically true.
+> - Body: develop the claim with visible reasoning ("because," "therefore," "this suggests").
+> - Wikilinks: pass the articulation test — "[[note]] connects because [specific reason]."
+>   Before linking, confirm the target exists: `ls notes/<slug>.md`. Do not glob all of `notes/`.
+> - Full YAML frontmatter — the required fields defined in CLAUDE.md Note Rules. Declare source-url
+>   once for this source and reuse it across its notes.
+> - Topics: footer (body content, not YAML) declaring MOC membership.
+>
+> Quality gate: each note is specific (named mechanism or framework), non-obvious, and arguable.
+> Extract claims; do not summarize. `validate-note.py` fires on every Write to `notes/` — fix
+> violations before continuing.
+>
+> **Return** (this is data for the orchestrator, not a human-facing message):
+> the plan table as written, one `slug | description | moc1, moc2` line per note created for the
+> dedup index, cross-links made to existing notes, contradictions found, and what remains thin.
 
 ---
 
-## Phase 5: Update MOC files
+## Phase 3: Housekeeping (main loop — serialized)
 
-Add each new note as a bare link under the correct conceptual cluster in Core Ideas.
-Context phrases are written in batch during periodic /repair runs — bare links are acceptable now.
+Run after all subagents return. Order matters.
+
+1. **Cross-batch reconciliation** — run only when two or more subagents returned notes (one
+   extracting subagent cannot collide with itself). Each subagent deduped against the *existing*
+   graph but was blind to its siblings' writes this batch, so two sources arguing the same claim can
+   produce twin notes. Scan the returned `slug | description | mocs` lines *across* subagents for
+   pairs describing the same phenomenon at the same abstraction level. This runs on the summary lines
+   the subagents already returned — open no notes unless a pair looks like a genuine collision.
+   Different abstraction levels (what vs. why vs. how) are not collisions. For each real collision,
+   **name both slugs in the Phase 4 report** for a later merge; do not let a same-claim twin pass
+   unreported.
+2. **Domain MOCs** — add each new note as a bare link under the correct conceptual cluster in Core
+   Ideas. Context phrases are written in batch during periodic `/repair` runs; bare links are fine now.
+   (Two-axis only: `source-*-moc.md` hubs are generated in step 5 and are never hand-edited.)
+3. **Dedup index** — append each subagent's returned `slug | description | mocs` lines to
+   `notes/dedup-index.md`.
+4. **Archive** source file(s) to `archive/transcripts/` (Module B); update `ops/processing-backlog.md`.
+   Any subagent that returned `SKIP` → add that file to `ops/reduce-skiplist.md` with its reason
+   instead of archiving.
+5. **(Two-axis only) Regenerate the source axis:** `python ops/build-source-index.py`
+   Derives every `source-*-moc.md` from note `author:` fields. Exits 1 if an author has notes but no
+   hub — create `notes/source-<author-slug>-moc.md` and re-run. Do not hand-edit the generated section.
+
+Do NOT write counts or state into `compass.md`. That is DERIVED (D1) and computed live by orientation.
 
 ---
 
-## Phase 6: Housekeeping (requires Module B for archive steps)
-
-1. Append to `notes/dedup-index.md` — format: `slug | description | moc1, moc2`
-2. Archive source file(s) to `archive/transcripts/` (Module B only)
-3. Update `ops/processing-backlog.md` (Module B only)
-4. Update compass counts
-
----
-
-## Phase 7: Report
+## Phase 4: Report
 
 Notes created, domains landed, cross-links made to existing notes, broken links deferred,
-contradictions found, what remains thin.
+contradictions found, intra-batch collisions flagged (Phase 3 step 1), files skipped and why,
+what remains thin.
 
 Extract claims; do not summarize.
 ```
@@ -1851,3 +2700,4 @@ After scaffolding, verify:
 11. **If Module A:** Write a note with a type not in validate-config.yaml → check 7 fires; unregistered slug → dedup check fires; bare MOC link → bare-link warning fires
 12. Run `/guide` → renders CLAUDE.md's Commands table; `/compass` → reads compass and returns oriented report
 13. **If Module A + C:** Run `/brief [question]` → reads compass, navigates graph, returns memo
+14. **Registered:** `{SYSTEM_REGISTRY}/ops/vault-manifest.md` has a new entry under the correct bucket (`pending-unpushed:` for a fresh vault) with the computed slug, and the registry change is committed scoped to `ops/vault-manifest.md` only. (If the registry was unreachable, the report says NOT registered and gives a paste-ready entry.)

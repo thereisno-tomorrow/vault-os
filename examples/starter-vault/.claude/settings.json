@@ -2,9 +2,7 @@
   "permissions": {
     "ask": [
       "Edit(/CLAUDE.md)",
-      "Write(/CLAUDE.md)",
-      "Edit(/ops/vault-manifest.md)",
-      "Write(/ops/vault-manifest.md)"
+      "Edit(/ops/vault-manifest.md)"
     ]
   },
   "hooks": {

@@ -1,4 +1,4 @@
-# Vault OS v4
+# Vault OS v4.2
 
 *Canonical specification for vault construction and cross-vault interoperability.*
 *Supersedes `vault-os-v2.md` (kept for history, marked SUPERSEDED). Derived from the approved
@@ -91,29 +91,40 @@ from derived signals.
 Each vault's `ops/vault-manifest.md` carries a **context contract** in YAML frontmatter:
 
 ```yaml
-exports:                    # the ONLY surfaces foreign sessions/agents may READ
-  compass: compass.md       # default. Everything NOT listed is invisible cross-vault — notes/ above all.
+exports:                    # the ONLY surfaces foreign sessions may READ
+  compass: compass.md       # default. Everything NOT listed is out of contract — notes/ above all.
+# agent-exports:            # optional narrow grants to a named shared agent
+#   job-match-scorer:
+#     - job-hunter/base-resume.md
 # intake:                   # optional — where foreign writers may DEPOSIT (deposits only, never edits in place)
 #   inbox: inbox/
 domains: [ ... ]            # discovery metadata — matched against foreign session intent
 cross-vault-dependencies: []# declared only if THIS vault loads from another
 ```
 
-Loading protocol simplifies to: **match domains → read exports → stop.** Pollution control is
-structural (you *cannot* read what isn't exported), not disciplinary. The meta-vault registry
-remains the derived spine (`sync-local.sh`) plus a hand overlay.
+Loading protocol simplifies to: **match domains → read exports → stop.** Exports define the
+reviewed routing contract. The harness does not technically prevent an out-of-contract read; a
+violation is detectable only when accessed paths are recorded or independently reviewed. The
+meta-vault registry joins the live derived spine (`sync-local.sh`) to its hand-authored semantic
+overlay.
 
-**Verify:** a cross-vault load completes reading only export surfaces; a read into a non-exported
-path is a protocol violation visible in the session summary.
+**Verify:** a cross-vault load records its accessed paths and completes reading only export
+surfaces; an out-of-contract fixture is reported by the path audit.
 
 ---
 
 ## 6. Agent coordination rides the same rails (D4)
 
-Agents are cross-vault readers/writers like any session: discover via the registry, read exports,
-deposit into intakes. The meta-vault may keep `handoffs/` as its own intake — a place any
-agent/session drops fleet-level notices; its orientation surfaces undigested handoffs. **No message
-bus, no queue, no daemon** until a real workflow outgrows deposit-files (admission criterion).
+Agents are cross-vault readers/writers like any session: discover through the generated-spine +
+semantic-overlay join, match domains, read the selected compass, then read only `exports:` or a
+narrow `agent-exports:` grant naming that agent. They deposit only new files into declared
+intakes and fail loudly when a join or path contract is missing. The authoritative definitions
+live in `global/agents/` and deploy repo → `~/.claude/agents/`.
+
+The meta-vault may keep `handoffs/` as its own intake — a place any agent/session drops
+fleet-level notices; its orientation surfaces root-level pending files until they move
+byte-for-byte into `handoffs/digested/`. **No message bus, no queue, no daemon** until a real
+workflow outgrows deposit-files (admission criterion).
 
 ---
 
@@ -125,18 +136,18 @@ official Claude Code permissions docs):
 
 - `permissions` object with `allow` / `ask` / `deny` arrays; evaluated **deny → ask → allow**,
   first match wins.
-- `Edit(...)` / `Write(...)` take gitignore-spec file-path patterns. A leading `/path` anchors at
-  the **settings source** — for a project's `.claude/settings.json` that is the project root.
-- A Read/Edit deny does **not** cover Write, so protecting a path requires **both** an `Edit(...)`
-  and a `Write(...)` rule.
+- `Edit(...)` takes gitignore-spec file-path patterns. A leading `/path` anchors at the
+  **settings source** — for a project's `.claude/settings.json` that is the project root.
+- On the worker epoch below, `Edit(/path)` covers file modification. `Write(/path)` permission
+  rules are never matched; do not add them.
 
 Baseline:
 
 ```json
 "permissions": {
   "ask": [
-    "Edit(/CLAUDE.md)", "Write(/CLAUDE.md)",
-    "Edit(/ops/vault-manifest.md)", "Write(/ops/vault-manifest.md)"
+    "Edit(/CLAUDE.md)",
+    "Edit(/ops/vault-manifest.md)"
   ]
 }
 ```
@@ -152,16 +163,31 @@ template returns nothing.
 ## 8. One hook lineage, tested, versioned (D6)
 
 The vault-os repo is the single hook source of truth: exactly two hooks (orient, capture), each
-with a `--selftest` mode that exercises its own dependencies (date parsing, grep regex including
-the decisions char class, git availability, `stat`, path resolution) and exits loudly on any
-failure. Each hook carries a `vault-os-hook-version` stamp (currently **4.1.0**). Every check
-fails loudly; nothing silently no-ops. A vault that intentionally carries a sanctioned superset of
-a hook (extra behavior beyond the spec repo's lineage) stamps its version with a `+<vault>` suffix
-(e.g. `4.1.0+meta.1`), so byte-drift checks can distinguish an intentional superset from unnoticed
-drift.
+with a `--selftest` mode that exercises its dependencies and exits loudly on failure. Orient also
+provides a local `--conformance` primitive; meta-vault's `sync-local.sh` is the only fleet
+orchestrator. Each hook carries a `vault-os-hook-version` stamp (currently **4.2.0**). A vault that
+intentionally carries a sanctioned superset stamps `4.2.0+<vault>.<n>` and has an expected hash in
+the fleet allowlist. A suffix by itself never blesses drift.
 
-**Verify:** `bash session-orient.sh --selftest` and `bash session-capture.sh --selftest` pass; a
-deliberately broken dependency makes them fail loudly, not silently.
+**Verify:** `bash session-orient.sh --selftest`, `bash session-capture.sh --selftest`, and
+`bash session-orient.sh --conformance` pass; a deliberately broken dependency or fixture fails
+loudly. Full orientation remains below 15 KB and comfortably below Claude Code's 60-second
+subprocess-initialization limit.
+
+### Worker epoch
+
+*Verified against: Claude Code 2.1.212 · Windows 11 / Git Bash · 2026-07-28.*
+
+- Hook events are `SessionStart` and `SessionEnd`; a blank matcher includes startup, resume,
+  clear, and compact.
+- Hook commands resolve the project with `$CLAUDE_PROJECT_DIR`.
+- SessionStart stdout is injected into context.
+- Hook subprocess initialization has a 60-second limit on the held-constant worker.
+- Native protected-file rules use `permissions.ask` with `Edit(/path)`. `Write(/path)` is dead
+  compatibility syntax on this epoch.
+
+This is a dated compatibility record, not a promise about future workers. Re-verify the epoch
+when the worker changes.
 
 ---
 
@@ -174,6 +200,8 @@ as `${VAULT_REGISTRY:-$HOME/Projects/meta-vault}`. No hardcoded absolute user pa
 
 ## 10. Migration (D8)
 
+- Migration surfaces are `hooks/`, `examples/starter-vault/.claude/hooks/`, the embedded hook
+  blocks in `skills/new-vault/SKILL.md`, `global/`, and every installed vault hook.
 - Wave 1: meta-vault + this spec repo. Wave 2: the active vaults. Wave 3: dormant vaults migrate
   **on first touch** — `session-orient.sh` detects a pre-v4 vault (manifest has no `exports:`
   contract) and prints a one-line migration offer instead of a speculative fleet pass.
@@ -219,7 +247,7 @@ A vault conforms to v4 when:
    `features`, `domains`, and an `exports:` block (plus optional `intake:` /
    `cross-vault-dependencies`).
 4. `.claude/settings.json` wires both hooks (blank matcher, `$CLAUDE_PROJECT_DIR` command) and
-   carries `permissions.ask` rules for `CLAUDE.md` and `ops/vault-manifest.md` (Edit + Write each).
-5. Both hooks pass `--selftest` and stamp version ≥ 4.1.0.
+   carries `permissions.ask` `Edit(...)` rules for `CLAUDE.md` and `ops/vault-manifest.md`.
+5. Both hooks pass `--selftest`; orient passes `--conformance`; both stamp version ≥ 4.2.0.
 6. No `knowledge.md`, no `guide.md`, no `protect.py`, no `protected-files.txt`.
 7. `validate-note.py` present only if the vault runs Module A.

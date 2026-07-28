@@ -1,3 +1,7 @@
+---
+description: Read or update the vault compass while keeping it limited to Focus, Questions, and Flags
+---
+
 $ARGUMENTS
 
 Read `ops/compass.md` in full.

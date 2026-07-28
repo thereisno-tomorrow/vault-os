@@ -40,10 +40,10 @@ intent (Focus / Questions / Flags). Read those, not a stale narrative pasted int
 ## Protected Files
 
 `CLAUDE.md` and `ops/vault-manifest.md` are gated by **native permission rules** in
-`.claude/settings.json` (`permissions.ask`). The harness prompts for approval BEFORE any Edit
-or Write to these paths — enforcement is native and pre-write, not a warn-after hook. To
-protect another file, add both `Edit(/path)` and `Write(/path)` to the `ask` array (a Read/Edit
-rule does not cover Write). There is no `protected-files.txt` and no `protect.py`.
+`.claude/settings.json` (`permissions.ask`). The harness prompts for approval BEFORE an Edit
+to these paths — enforcement is native and pre-write, not a warn-after hook. To protect another
+file, add `Edit(/path)` to the `ask` array. `Write(/path)` is not a live file-modification rule on
+the verified worker epoch. There is no `protected-files.txt` and no `protect.py`.
 
 ---
 
@@ -53,7 +53,7 @@ rule does not cover Write). There is no `protected-files.txt` and no `protect.py
 **Don't read all context files upfront.** Orientation already gave you the map — load on demand, by session intent.
 **Don't reason from scratch.** Pull from `ops/decisions.md`, the compass, and git history first.
 **Don't catch and swallow errors in hooks.** A check that cannot run must say so; it never defaults to "fine."
-**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is invisible cross-vault — `notes/` above all.
+**Don't read a foreign vault beyond its declared `exports:`.** Everything not exported is out of contract — `notes/` above all. This is reviewed routing discipline, not a technical read barrier.
 
 ---
 
