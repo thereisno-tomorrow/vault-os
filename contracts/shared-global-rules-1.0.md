@@ -23,11 +23,11 @@
 | Write to decisions.md at session end | Capture at the moment of insight; nuance is gone by session end |
 | Route project-specific knowledge to `~/.claude/operator.md` | `operator.md` is for personal/workflow patterns that apply everywhere; project facts go to the vault's decisions.md or auto-memory |
 | Use SessionStop as a hook event | It does not exist; hooks wired to it silently never fire |
-| Rely on SessionEnd for VS Code tab close | It doesn't fire on tab close; derived orientation (git) is the safety net, capture skill the enrichment |
+| Rely on SessionEnd for VS Code tab close | It doesn't fire on tab close; derived orientation (git) is the safety net, the `capture` skill the enrichment |
 | Assert a vault's state without reading its orientation | Health tables are abolished (v4 D1); state is computed per-vault, never cached |
 | Read a foreign vault outside its declared `exports:` | The path is out of contract (v4 D3); manifests declare allowed surfaces, but filesystem permissions do not enforce the boundary |
 | Write into a foreign vault anywhere but its `intake:` | Deposits only, never in-place edits; knowledge-graph writes additionally require explicit user instruction |
-| Not running `decide skill` at the moment a decision is made | Decisions lose nuance by session end; missing an entry means the next session re-litigates from scratch |
+| Not running the `decide` skill at the moment a decision is made | Decisions lose nuance by session end; missing an entry means the next session re-litigates from scratch |
 | Apply local vault schema rules to foreign vault content | Each vault has its own schema and validate hooks; running local validation against imported notes produces false violations |
 | Prune operator.md entries autonomously | Cross-session entry value is invisible to a single-session observer; pruning risk is permanent and unrecoverable — flag and defer to human |
 
@@ -46,7 +46,7 @@ signals and the Setup-mode scaffold — recognition lives there now, not in this
 - Sharp. No wasted words.
 - State session intent in one sentence before loading any context.
 - Context loads on demand. Never read all context files at session start.
-- When operator.md exceeds 160 lines, append to capture skill output: "operator.md is now N lines — approaching the 200-line truncation limit. Review and prune manually." Never prune autonomously.
+- When operator.md exceeds 160 lines, append to the `capture` skill's output: "operator.md is now N lines — approaching the 200-line truncation limit. Review and prune manually." Never prune autonomously.
 
 ---
 
