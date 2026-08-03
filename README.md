@@ -161,17 +161,8 @@ vault-os/
 │   ├── design-principles.md           # The "why" behind every decision
 │   └── hooks-reference.md             # Claude Code hooks deep reference
 ├── contracts/                         # Text vault-os owns, other systems consume
-│   └── agent-contract-1.0.md          # Cross-vault contract injected into shared agents
-├── global/                            # LEGACY — no longer installed from here
-│   ├── CLAUDE.md                      # Superseded: agent-config composes global instructions
-│   ├── agents/                        # Superseded: agent-config owns the six agent bodies
-│   │   ├── job-match-scorer.md
-│   │   └── ...                        # retained until contract generation is wired
-│   └── commands/                      # Retired: converted to skills at the 2026-08-01 cutover
-│       ├── capture.md
-│       ├── compass.md
-│       ├── decide.md
-│       └── guide.md                   # all four now live as agent-config skills
+│   ├── agent-contract-1.0.md          # Cross-vault contract composed into shared agents
+│   └── shared-global-rules-1.0.md     # Fleet rules composed into CLAUDE.md and AGENTS.md
 ├── hooks/                             # Reference implementations — the single hook source of truth
 │   ├── session-orient.sh              # SessionStart: computed orientation, --selftest
 │   ├── session-capture.sh             # SessionEnd: minimal machine capture, --selftest

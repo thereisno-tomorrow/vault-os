@@ -118,8 +118,10 @@ surfaces; an out-of-contract fixture is reported by the path audit.
 Agents are cross-vault readers/writers like any session: discover through the generated-spine +
 semantic-overlay join, match domains, read the selected compass, then read only `exports:` or a
 narrow `agent-exports:` grant naming that agent. They deposit only new files into declared
-intakes and fail loudly when a join or path contract is missing. The authoritative definitions
-live in `global/agents/` and deploy repo → `~/.claude/agents/`.
+intakes and fail loudly when a join or path contract is missing. Since 2026-08-03 the agent
+bodies are owned by `agent-config`; vault-os owns only the contract text they must carry,
+`contracts/agent-contract-1.0.md`, which `agent-config` composes into each agent at release
+time. Bumping the contract here reaches every installed agent without editing an agent body.
 
 The meta-vault may keep `handoffs/` as its own intake — a place any agent/session drops
 fleet-level notices; its orientation surfaces root-level pending files until they move
@@ -201,7 +203,7 @@ as `${VAULT_REGISTRY:-$HOME/Projects/meta-vault}`. No hardcoded absolute user pa
 ## 10. Migration (D8)
 
 - Migration surfaces are `hooks/`, `examples/starter-vault/.claude/hooks/`, the embedded hook
-  blocks in `skills/new-vault/SKILL.md`, `global/`, and every installed vault hook.
+  blocks in `skills/new-vault/SKILL.md`, `contracts/`, and every installed vault hook.
 - Wave 1: meta-vault + this spec repo. Wave 2: the active vaults. Wave 3: dormant vaults migrate
   **on first touch** — `session-orient.sh` detects a pre-v4 vault (manifest has no `exports:`
   contract) and prints a one-line migration offer instead of a speculative fleet pass.
