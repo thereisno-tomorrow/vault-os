@@ -160,16 +160,18 @@ vault-os/
 │   ├── vault-os-v2.md                 # SUPERSEDED — kept for history + Module A–C internals
 │   ├── design-principles.md           # The "why" behind every decision
 │   └── hooks-reference.md             # Claude Code hooks deep reference
-├── global/                            # Copy to ~/.claude/
-│   ├── CLAUDE.md                      # Universal rules for all vaults
-│   ├── agents/                        # Durable source for shared agent definitions
+├── contracts/                         # Text vault-os owns, other systems consume
+│   └── agent-contract-1.0.md          # Cross-vault contract injected into shared agents
+├── global/                            # LEGACY — no longer installed from here
+│   ├── CLAUDE.md                      # Superseded: agent-config composes global instructions
+│   ├── agents/                        # Superseded: agent-config owns the six agent bodies
 │   │   ├── job-match-scorer.md
-│   │   └── ...                        # six definitions; repo → installed
-│   └── commands/                      # Slash commands available everywhere
+│   │   └── ...                        # retained until contract generation is wired
+│   └── commands/                      # Retired: converted to skills at the 2026-08-01 cutover
 │       ├── capture.md
 │       ├── compass.md
 │       ├── decide.md
-│       └── guide.md                   # renders CLAUDE.md's Commands table
+│       └── guide.md                   # all four now live as agent-config skills
 ├── hooks/                             # Reference implementations — the single hook source of truth
 │   ├── session-orient.sh              # SessionStart: computed orientation, --selftest
 │   ├── session-capture.sh             # SessionEnd: minimal machine capture, --selftest
@@ -191,24 +193,37 @@ vault-os/
 
 ### Option A: Scaffold a new vault automatically
 
-1. **Install global files:**
+1. **Install global files — via `agent-config`, not by copying.**
+
+   vault-os no longer installs anything into `~/.claude` or `~/.agents` itself.
+   Those directories are deployment targets owned by the `agent-config`
+   controller, which materialises an immutable release and links providers at it.
+
+   > **Do not `cp` into a provider directory.** Since the 2026-08-01 cutover,
+   > `~/.claude/skills/new-vault` is a symlink into an immutable release
+   > snapshot. Copying over it rewrites the bytes of a release whose identifier
+   > is a content hash, silently, with no signal until the next drift check.
+
+   `skills/new-vault/` remains **canonical here** — this is where you edit it.
+   `agent-config` declares it `foreign-owned`, vendors it at a recorded commit,
+   and delivers it to both Claude and Codex. Its `upstream-sync` validator fails
+   if the vendored copy diverges from this repository, so the two cannot drift
+   apart unnoticed.
+
+   To install or update the global layer:
+
    ```bash
-   # Copy global CLAUDE.md (universal rules)
-   cp global/CLAUDE.md ~/.claude/CLAUDE.md
-
-   # Copy slash commands
-   cp global/commands/*.md ~/.claude/commands/
-
-   # Copy shared agents (the repository is authoritative)
-   mkdir -p ~/.claude/agents
-   cp global/agents/*.md ~/.claude/agents/
-
-   # Copy the scaffolding skill
-   mkdir -p ~/.claude/skills/new-vault
-   cp skills/new-vault/SKILL.md ~/.claude/skills/new-vault/SKILL.md
+   cd ~/Projects/agent-config
+   node scripts/agent-config.mjs validate     # fails on upstream drift
+   node scripts/agent-config.mjs plan         # prints an exact plan id
+   node scripts/agent-config.mjs apply --plan <path> --confirm-plan-id <id>
    ```
 
-2. **Open any project in Claude Code and run:**
+   After editing anything under `skills/new-vault/` here, re-vendor it into
+   `agent-config` and cut a new release; a stale vendored copy fails validation
+   rather than shipping quietly.
+
+2. **Open any project in Claude Code or Codex and run:**
    ```
    /new-vault
    ```

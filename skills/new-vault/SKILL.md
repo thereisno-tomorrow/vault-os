@@ -167,7 +167,7 @@ Module G: `sources/`
 
 **Step 16: Write `.claude/commands/` files** — write one file per active command:
 - Always: `compass.md` (T-CMD-COMPASS) — local override because new vaults place compass at root, not ops/
-- Note: `capture.md`, `decide.md`, `guide.md` are global commands in `~/.claude/commands/` — do NOT scaffold them locally. `/guide` renders CLAUDE.md's Commands table; there is no `ops/guide.md`.
+- Note: capture, decide and guide are global **skills** managed by agent-config and linked into both Claude and Codex — do NOT scaffold them locally. (`~/.claude/commands/` no longer exists; the commands were converted to skills at the 2026-08-01 cutover.) `/guide` renders CLAUDE.md's Commands table; there is no `ops/guide.md`.
 - Module A: `reduce.md` (T-CMD-REDUCE), `reflect.md` (T-CMD-REFLECT), `connect.md` (T-CMD-CONNECT), `think.md` (T-CMD-THINK)
 - Module C: `brief.md` (T-CMD-BRIEF), `challenge.md` (T-CMD-CHALLENGE). If A already wrote `think.md`, do not write it again.
 - Module G: `scan.md` (T-CMD-SCAN)
@@ -178,7 +178,7 @@ Module G: `sources/`
 
 ### Phase 4 — Register in the meta-vault registry
 
-**This is a standard, non-optional final step of standing up a vault** — not an optional foreign-vault write. A scaffolded vault that isn't registered is invisible to cross-vault discovery, and every prior `/new-vault` vault was registered in the same session. Do NOT ask the user whether to register or offer to defer it — just do it. (The global rule *"Claude does not edit cross-vault-dependencies — human decides"* governs a vault declaring its **own** load-dependencies; it does NOT govern entering a newly-created vault into the central registry. Different operation — do not conflate the two.)
+**This is a standard, non-optional final step of standing up a vault** — not an optional foreign-vault write. A scaffolded vault that isn't registered is invisible to cross-vault discovery, and every prior `/new-vault` vault was registered in the same session. Do NOT ask the user whether to register or offer to defer it — just do it. (The global rule *"Agents do not edit cross-vault-dependencies — human decides"* governs a vault declaring its **own** load-dependencies; it does NOT govern entering a newly-created vault into the central registry. Different operation — do not conflate the two.)
 
 Resolve the registry root: `{SYSTEM_REGISTRY}` = `${VAULT_REGISTRY:-$HOME/Projects/meta-vault}` (resolve `$HOME` for this machine — Windows: `C:/Users/<user>`). All steps operate on `{SYSTEM_REGISTRY}/ops/vault-manifest.md`.
 
@@ -2421,7 +2421,7 @@ Keep it honest. The compass holds only what git cannot tell you.
 
 ### T-CMD-GUIDE, T-CMD-CAPTURE, T-CMD-DECIDE
 
-These are global commands (`~/.claude/commands/`). Do not scaffold them locally. They are available in every vault automatically. `/guide` renders CLAUDE.md's Commands table (there is no `ops/guide.md`). `/maintain` is retired in v4 along with `knowledge.md` — do not reference it.
+These are global **skills** managed by agent-config and linked into both Claude and Codex. Do not scaffold them locally. They are available in every vault automatically. (`~/.claude/commands/` no longer exists; the commands were converted to skills at the 2026-08-01 cutover.) `/guide` renders CLAUDE.md's Commands table (there is no `ops/guide.md`). `/maintain` is retired in v4 along with `knowledge.md` — do not reference it.
 
 ---
 
