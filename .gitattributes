@@ -1,0 +1,4 @@
+# Hooks and the scaffolding skill are compared byte for byte by tests/test-hooks.sh,
+# so they must check out with LF endings on every platform.
+*.sh text eol=lf
+skills/new-vault/SKILL.md text eol=lf

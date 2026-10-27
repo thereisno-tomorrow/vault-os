@@ -75,8 +75,6 @@ The last line shows the orientation without opening Claude Code. Open the folder
 
 To check the hooks themselves, run `bash tests/test-hooks.sh`. It runs 13 checks, including broken fixtures (a manifest missing its `exports:` block, a stale hook version, bad wiring) that the checker has to name correctly.
 
-On Windows, Git converts line endings by default (`core.autocrlf=true`) and one check then fails. Clone with `git -c core.autocrlf=false clone <url>` to avoid it.
-
 The starter vault's `CLAUDE.md` lists `/capture`, `/decide`, `/guide` and `/compass`. Those are skills in my own setup and are not in this repo. The hooks work without them. `/capture` only adds a narrative summary on top of the automatic record.
 
 ## Design decisions and what they cost
