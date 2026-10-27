@@ -1,264 +1,110 @@
 # Vault OS
 
-A context engineering system for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that makes AI sessions resumable, cross-project context loading deterministic, and oversight automatic.
+Session memory for [Claude Code](https://docs.anthropic.com/en/docs/claude-code). Two small shell scripts tell the agent where a project stands when a session starts, and record what changed when it ends, so you stop re-briefing it by hand.
 
-Built for people running many projects at once, who want the machine to carry the state instead of carrying it themselves.
+**Status:** personal tool, v4.2.0, MIT. I started building it in February 2026 and published the first version that March, when Claude Code had no good way to carry project state from one session to the next. The current Claude Code desktop app covers most of that itself, through session history and built-in memory, so most people no longer need this. I'm leaving it up as a worked example of the approach, and because two things are still not covered (see [Where it still helps](#where-it-still-helps)).
 
-**Canonical spec: [`spec/vault-os-v4.md`](spec/vault-os-v4.md).** `spec/vault-os-v2.md` is superseded — kept for history and for the Module A–C internals it still documents, but do not scaffold new vaults against it.
+## The problem, as it was in early 2026
 
-## The Problem
+When I started this, Claude Code began every session knowing nothing about your project. You could re-explain it each time, or keep a status file for the agent to read. I tried the status file first (v2 of this project) and it went stale.
 
-AI collapsed the cost of execution to nearly nothing. But it shifted the human's job from *doing the work* to *overseeing and directing the work*. The bottleneck moved: it is no longer how fast you can build, it is how much context you can hold across projects, sessions, and machines — and how reliably you can hand it back to an agent that starts every session blind.
+v4 rests on one rule: **if a machine can compute it, nobody should be asked to remember it.** Branch, recent commits, uncommitted work and recently edited files are one `git` call away. The only things worth writing by hand are the things git cannot know: what you are trying to do, what is undecided, and what to watch out for.
 
-That's not a discipline problem, and no amount of diligent note-keeping fixes it. Hand-maintained status goes stale the moment attention moves elsewhere. The fix is to stop asking anyone to maintain it.
+## What you get
 
-v2 tried to fix this by asking sessions to hand-curate live state (compass tables, handoff narratives). Evidence from a fleet-wide audit showed that fails universally — every hand-curated compass froze within days. v4 rebuilds continuity on a different premise: **state a machine can compute, it must never be asked to remember.**
+- **`session-orient.sh`** runs when a session starts. It prints the branch, the last five commits, uncommitted and unpushed counts, the five most recently edited files and the last session record, all computed on the spot. Nothing is cached, so nothing can go stale.
+- **`session-capture.sh`** runs when a session ends. It writes a short record to `ops/sessions/last-active.md` with the time, branch and files touched.
+- **`compass.md`** is the one file you write. It has three short sections: Focus, Questions and Flags. If its `Updated:` date is more than 30 days old, orientation shows it behind a warning instead of presenting old intent as current.
 
-## What This Is
+Both hooks are plain bash and git. No model calls, no network, no database.
 
-Vault OS is a context engineering layer built on Claude Code's hooks, commands, and native permissions. Each project lives in its own **vault** — a folder with four baseline components that turn it from a directory into a context machine.
+## What it prints
 
-It serves two players:
-- **The agent** gets deterministic context loading — orientation computed live from git and disk, never a stale cache, plus a slim declared compass for the handful of things git can't tell it.
-- **The human** gets automatic capture. A hook writes a session record whether or not anyone remembers to run a command.
-
-```
-THE CONTEXT BOTTLENECK
-  ├── AI made execution cheap; oversight and context expensive
-  ├── Agents start every session blind; humans re-brief them by hand
-  └── Hand-maintained state always goes stale → compute it instead
-        │
-        ▼
-FIVE PRINCIPLES (vault-os-v4)
-        │
-        ├── Survive neglect — no component depends on a human ritual
-        ├── Fail loudly — a check that can't run says so, never "fine"
-        ├── Admission criterion — would anyone notice within a week if this broke?
-        ├── Native-first — Claude Code primitives before bespoke reimplementations
-        └── Derived over declared — if disk/git can answer it, no one has to maintain it
-```
-
-## What It Actually Prints
-
-Every session opens with this — computed at startup, no human upkeep. Representative output from
-`hooks/session-orient.sh` run against [`examples/starter-vault/`](examples/starter-vault):
+Real output from `hooks/session-orient.sh` on a fresh copy of `examples/starter-vault`, trimmed:
 
 ```
 ╔══════════════════════════════════════════════════════════╗
-║  starter-vault ORIENTATION                               ║
+║  demo-vault ORIENTATION                                  ║
 ╚══════════════════════════════════════════════════════════╝
-Date: 2026-07-28   hook 4.2.0
-
---- OPERATOR PROFILE ---
-  (your ~/.claude/operator.md — cross-project working patterns, elided here)
+Date: 2026-10-27   hook 4.2.0
 
 ════════════════════════════════════════════════════════════
 DERIVED — live from git + disk
 ════════════════════════════════════════════════════════════
-Branch: master
+Branch: main
 Last 5 commits:
-  a01ba4a fix: remove dead Write() permission rules; document +<vault> hook-version suffix
-  4a612eb docs: rewrite README for vault-os v4
-  ce75c58 fix: stage guide.md render-the-table rewrite (missed in prior commit)
-  d86a755 chore: retire /maintain from global commands, guide.md renders CLAUDE.md table
-  b74fcd3 feat: Vault OS v4 template set + computed-orientation hooks (Phase 1, D1–D9)
-Recovery posture: local-history=yes; remotes=1; upstream=origin/master; 0 unpushed; tracked-changes=0; untracked=0 files/0 B
+  ee817c7 scaffold starter vault
+Recovery posture: local-history=yes; remotes=0; upstream=NONE; push status unknown; tracked-changes=1; untracked=0 files/0 B
 Recently modified (non-ignored, top 5):
   ops/vault-manifest.md
-  CLAUDE.md
+  ops/sessions/last-active.md
+  ops/decisions.md
   compass.md
-  .claude/settings.json
-  .claude/hooks/session-orient.sh
+  CLAUDE.md
 
-Last session record (ops/sessions/last-active.md, 134d old):
-  Date: 2026-01-01
-  Source: Initial scaffold
-
---- DECLARED (compass intent — Focus / Questions / Flags) ---
-╔══════════════════════════════════════════════════════════╗
-║  ⚠ intent last declared 203 days ago — treat as HISTORICAL
-║  The compass below reflects intent as of 2026-01-01, not now.
-║  Trust the DERIVED section above for current state.       ║
-╚══════════════════════════════════════════════════════════╝
-
-# Compass
-*Updated: 2026-01-01*
-## Focus
-Fresh vault. No work started yet — replace this with what the vault is trying to do now.
+════════════════════════════════════════════════════════════
+DECLARED — compass intent
+════════════════════════════════════════════════════════════
+⚠ intent last declared 299 days ago — treat as HISTORICAL
 ...
-
-╔══════════════════════════════════════════════════════════╗
-║  Continuity is computed. /capture only adds narrative.    ║
-╚══════════════════════════════════════════════════════════╝
+--- ORIENTATION COST ---
+operator=0B derived=911B declared=1059B plans=0B intakes=0B decisions=209B
 ```
 
-Two things to notice. Everything under DERIVED is recomputed from git and disk at startup —
-there is no cached copy that can drift. And the compass didn't quietly present a stale Focus
-as current: because its declared stamp is past the 30-day threshold, orientation demoted it
-behind a banner and pointed the agent back at computed state. That is *fail loudly* and
-*derived over declared* doing their jobs in the same frame.
+Everything under DERIVED is recomputed at startup. The starter vault's compass is dated 2026-01-01, so orientation put it behind a banner and pointed the agent back at the computed state.
 
-(The two ages measure different things on purpose: the session record is aged by file mtime,
-the compass by the stamp a human last wrote.)
+## Where it still helps
 
-## How It Works
+Built-in memory holds notes the model chose to keep. Two things it does not do:
 
-### Continuity is computed, not curated
+- **State that cannot drift.** Branch, commits, uncommitted work and recent files are recomputed from git at every start. They are never a remembered copy that could be out of date.
+- **State that lives in the project.** The compass, decisions log and session record are plain files in the repo, so they are versioned, reviewable and move with the project between machines. Built-in memory lives in the app's own folder.
 
-State splits by who can know it:
+## Try it
 
-- **DERIVED** — `session-orient.sh` computes this live, every session: current branch, last 5 commits, uncommitted/unpushed counts, the 5 most recently modified files, and the last session record with its age. No stored copy exists to go stale.
-- **DECLARED** — `compass.md` holds only three sections: **Focus** (what the vault is trying to do now), **Questions** (open decisions), **Flags** (known hazards) — plus an `*Updated:*` stamp. If that stamp is more than 30 days old, orientation shows the compass behind a loud staleness banner instead of presenting it as current.
+You need Claude Code, bash and git. Python 3 is only for the optional note validator.
 
-Vault Health tables, "current state" narratives, and Session Handoff blocks are gone as a genre — that kind of status is computed on demand, never cached.
-
-### Capture is a hook, not a ritual
-
-**`session-capture.sh`** (SessionEnd hook) writes a minimal machine record to `ops/sessions/last-active.md` on every clean exit — timestamp, branch, files touched (an approximation, since a true session diff isn't available to a hook). Before replacement, a narrative `/capture` record is archived byte-for-byte to a Windows-safe timestamped filename. **`/capture`** layers narrative on top when you use it, but nothing is load-bearing on that happening: if you close a session without it, the next orientation still reconstructs what happened from derived signals plus the hook's record.
-
-### Sharing by contract, isolation by default
-
-Each vault's `ops/vault-manifest.md` carries a context contract in its YAML frontmatter:
-
-```yaml
-exports:                    # the ONLY surfaces foreign sessions may READ
-  compass: compass.md       # default — everything not listed is out of contract, notes/ above all
-# agent-exports:            # optional narrow grants to one named shared agent
-# intake:                   # optional — where foreign writers may DEPOSIT (never edit in place)
-#   inbox: inbox/
-domains: [ ... ]            # discovery metadata, matched against a foreign session's stated intent
-cross-vault-dependencies: []
+```bash
+cp -r examples/starter-vault ~/Projects/my-project
+cd ~/Projects/my-project
+git init && git add -A && git commit -m "start"
+CLAUDE_PROJECT_DIR="$PWD" bash .claude/hooks/session-orient.sh
 ```
 
-Cross-vault loading simplifies to: match domains → read exports → stop. Pollution control is structural — you *can't* read what isn't exported — not disciplinary.
+The last line shows the orientation without opening Claude Code. Open the folder in Claude Code and `.claude/settings.json` runs both hooks at session start and end.
 
-Agents ride the same rails: they discover vaults via the meta-vault registry, read exports, and deposit into intakes. Meta-vault keeps a `handoffs/` intake for fleet-level notices any agent or session can drop and the next orientation surfaces. No message bus, no queue, no daemon — that only gets built when a real workflow outgrows deposit-files.
+To check the hooks themselves, run `bash tests/test-hooks.sh`. It runs 13 checks, including broken fixtures (a manifest missing its `exports:` block, a stale hook version, bad wiring) that the checker has to name correctly.
 
-### Enforcement is native
+On Windows, Git converts line endings by default (`core.autocrlf=true`) and one check then fails. Clone with `git -c core.autocrlf=false clone <url>` to avoid it.
 
-Protected files (`CLAUDE.md`, `ops/vault-manifest.md`) are gated by native `permissions.ask` rules in `.claude/settings.json`, enforced by the harness *before* the write — not warned after the fact. `protect.py` is retired; it watched one tool, warned post-hoc, and guarded an empty list while claiming protection it didn't deliver.
+The starter vault's `CLAUDE.md` lists `/capture`, `/decide`, `/guide` and `/compass`. Those are skills in my own setup and are not in this repo. The hooks work without them. `/capture` only adds a narrative summary on top of the automatic record.
 
-### One hook lineage, tested, versioned
+## Design decisions and what they cost
 
-Exactly two hooks — `session-orient.sh` and `session-capture.sh` — live in this repo as the single source of truth for every vault. Each ships a `--selftest` mode that exercises its own dependencies (date parsing, grep regex, git availability, batched file metadata reads where used, path resolution) and fails loudly on any broken dependency. Each carries a `vault-os-hook-version` stamp.
+- **Compute, don't curate.** The hooks only know what git and the disk know. Why a decision was made still needs a person, through the decisions log (`ops/decisions.md`).
+- **Say so when something is stale.** A stale compass is demoted behind a banner, not hidden and not trusted. The cost is that dormant projects open with a warning.
+- **Cap what gets injected.** Orientation lands in the agent's context every session, so it has a 15 KB budget. The three newest decisions show in full, and older ones stay visible only while unresolved. The cost is that old, resolved decisions need a grep.
+- **Use Claude Code's own permission rules.** Protected files (`CLAUDE.md`, the manifest) sit behind `permissions.ask`. My first version was a Python hook that watched one tool, warned after the write, and guarded an empty list. The cost of the native rule is that it prompts you. It does not hard-block.
+- **Share between projects by declared list.** A project's `ops/vault-manifest.md` lists the files other sessions may read (`exports:`), and anything unlisted is out of bounds. That is routing policy, not a security boundary: the filesystem still allows the read.
 
-### Portable root
+## Limits
 
-Hooks and scripts resolve the vault from `$CLAUDE_PROJECT_DIR` and the meta-vault registry as `${VAULT_REGISTRY:-$HOME/Projects/meta-vault}`. No hardcoded absolute user paths in the templates.
+- Claude Code only. The hooks use its session start and session end events.
+- Session end does not fire when you close a VS Code tab, and "files touched" is an approximation, because a hook cannot diff against the session start.
+- The compass still depends on a person. The system demotes it when it goes stale. It does not fix it.
+- This is plumbing around the session. It does nothing about retrieval or about how the model uses the context once it has it.
 
-## What v4 Retired
+## Repo map
 
-`knowledge.md` and its Core/Extended graduation machinery, `guide.md` as a separate file (`/guide` now renders CLAUDE.md's own Commands table — one source per fact), `protect.py` and `protected-files.txt`, `/maintain`, Vault Health tables, and Session Handoff narrative blocks. All confirmed dead weight — either zero organic use or actively misdirecting. See [`spec/vault-os-v4.md`](spec/vault-os-v4.md) §11 for the full list and the reasoning.
+- `hooks/`: the two hooks (single source of truth), plus `validate-note.py` for the optional knowledge-graph module
+- `examples/starter-vault/`: a minimal working vault
+- `templates/`: blank versions of each vault file
+- `spec/vault-os-v4.md`: the current spec. `spec/design-principles.md` has the reasoning. `spec/vault-os-v2.md` is superseded and kept for history.
+- `tests/`: the 13-check suite above
+- `skills/new-vault/`: a Claude Code skill that scaffolds a vault. It was written for my own setup and I have not tested it outside it, so use the manual copy above.
+- `contracts/`: text shared with my own multi-repo setup. You do not need it to use Vault OS.
 
-## Repo Structure
-
-```
-vault-os/
-├── README.md
-├── spec/                              # System specification & design docs
-│   ├── vault-os-v4.md                 # Canonical spec (current)
-│   ├── vault-os-v2.md                 # SUPERSEDED — kept for history + Module A–C internals
-│   ├── design-principles.md           # The "why" behind every decision
-│   └── hooks-reference.md             # Claude Code hooks deep reference
-├── contracts/                         # Text vault-os owns, other systems consume
-│   ├── agent-contract-1.0.md          # Cross-vault contract composed into shared agents
-│   └── shared-global-rules-1.0.md     # Fleet rules composed into CLAUDE.md and AGENTS.md
-├── hooks/                             # Reference implementations — the single hook source of truth
-│   ├── session-orient.sh              # SessionStart: computed orientation, --selftest
-│   ├── session-capture.sh             # SessionEnd: minimal machine capture, --selftest
-│   └── validate-note.py               # PostToolUse Write: knowledge graph validation (Module A only)
-├── templates/                         # Reference templates for vault files
-│   ├── CLAUDE.md                      # Per-vault contract
-│   ├── settings.json                  # Hook wiring + native permissions.ask rules
-│   ├── compass.md                     # Slim Focus/Questions/Flags compass
-│   ├── decisions.md
-│   └── vault-manifest.md              # exports/intake/domains context contract
-├── skills/
-│   └── new-vault/
-│       └── SKILL.md                   # /new-vault scaffolding command
-└── examples/
-    └── starter-vault/                 # A complete minimal vault, ready to use
-```
-
-## Quickstart
-
-### Option A: Scaffold a new vault automatically
-
-1. **Install global files — via `agent-config`, not by copying.**
-
-   vault-os no longer installs anything into `~/.claude` or `~/.agents` itself.
-   Those directories are deployment targets owned by the `agent-config`
-   controller, which materialises an immutable release and links providers at it.
-
-   > **Do not `cp` into a provider directory.** Since the 2026-08-01 cutover,
-   > `~/.claude/skills/new-vault` is a symlink into an immutable release
-   > snapshot. Copying over it rewrites the bytes of a release whose identifier
-   > is a content hash, silently, with no signal until the next drift check.
-
-   `skills/new-vault/` remains **canonical here** — this is where you edit it.
-   `agent-config` declares it `foreign-owned`, vendors it at a recorded commit,
-   and delivers it to both Claude and Codex. Its `upstream-sync` validator fails
-   if the vendored copy diverges from this repository, so the two cannot drift
-   apart unnoticed.
-
-   To install or update the global layer:
-
-   ```bash
-   cd ~/Projects/agent-config
-   node scripts/agent-config.mjs validate     # fails on upstream drift
-   node scripts/agent-config.mjs plan         # prints an exact plan id
-   node scripts/agent-config.mjs apply --plan <path> --confirm-plan-id <id>
-   ```
-
-   After editing anything under `skills/new-vault/` here, re-vendor it into
-   `agent-config` and cut a new release; a stale vendored copy fails validation
-   rather than shipping quietly.
-
-2. **Open any project in Claude Code or Codex and run:**
-   ```
-   /new-vault
-   ```
-   The skill asks a few questions, then writes all files in the correct structure.
-
-3. **Verify the installed source tree:**
-   ```bash
-   bash tests/test-hooks.sh
-   ```
-   This checks canonical/starter/embedded hook equality, both hook selftests,
-   the 15 KB decision window, and named conformance failures.
-
-### Option B: Copy the starter vault manually
-
-1. **Install global files** (same as above).
-
-2. **Copy the example:**
-   ```bash
-   cp -r examples/starter-vault/ ~/Projects/my-project/
-   ```
-
-3. **Edit the files** — replace placeholder values in `CLAUDE.md`, `compass.md`, and `ops/vault-manifest.md` with your project details.
-
-## Module System
-
-The baseline above is the whole system for most vaults. Beyond it, vaults can opt into feature modules — unchanged by v4:
-
-| Module | Name | What it adds |
-|---|---|---|
-| A | Knowledge Graph | `notes/` directory, MOCs, schema validation, wikilink traversal |
-| B | Inbox Pipeline | `inbox/`, transcript processing, `/reduce` command |
-| C | Synthesis Commands | `/brief`, `/think`, `/challenge`, `/connect` |
-| D | Project State | Tech stack, architecture docs, code patterns, hot files |
-| E | Context Loading | Intent-to-file mapping tables |
-| F | Design Workspace | `context/`, `architecture/`, `research/` directories |
-| G | Intelligence Scanning | `sources/`, `/scan` command, live web research |
-
-See [spec/vault-os-v2.md](spec/vault-os-v2.md) Section 5 for the full module catalog and composition rules (unchanged from v2 — v4 doesn't touch module internals).
-
-## Requirements
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (CLI or VS Code extension)
-- Bash (Git Bash on Windows)
-- Python 3 (for `validate-note.py`, Module A only)
+Seven optional modules (A to G) add a notes graph, inbox processing, synthesis commands and similar. They are described in `spec/vault-os-v2.md`, section 5. The baseline above needs none of them.
 
 ## License
 
